@@ -50,7 +50,28 @@ class ISOplot:
 	def done():
 		return self.done
 
-	def overview(self, fig, gW=4):
+	def generate_all(self, tw, dpi):
+		std_width = 230
+		aa_width = 200
+		is_width = 250
+
+		w = (tw-100)/dpi
+		self.OVER = self.overview(figsize=(w, w*2), dpi=dpi)
+
+		w = (tw-aa_width)/dpi
+		self.AA_H = self.aa_hist(gW=3, figsize=(w,w*3), dpi=dpi)
+		self.AA_T = self.aa_out()
+
+		w = (tw-std_width)/dpi
+		self.STD_H = self.std_hist(gW=3, figsize=(w, w * 4), dpi=dpi)
+		self.STD_T = self.std_out()
+
+		w = (tw-is_width)/dpi
+		self.IS_H = self.is_hist(figsize=(w, w*2), dpi=dpi)
+		self.IS_T = self.is_out()
+
+	def overview(self, gW=4, figsize=(20,50), dpi=20):
+		fig = plt.figure(figsize=figsize, dpi=dpi)
 
 		compounds = self._all.drop(['Identifier 1', 'Identifier 2'], axis=1).columns
 
@@ -85,7 +106,7 @@ class ISOplot:
 
 			fig.add_subplot(gsx[1, 0])
 
-		return
+		return fig
 
 	def aa_hist(self, gW=4, figsize=(20,50), dpi=20):
 		gH = math.ceil(len(self.aa.index) / gW)

@@ -40,7 +40,7 @@ class App(QMainWindow):
 		self.left = 0
 		self.top = 0
 		self.width = 1100
-		self.height = 800
+		self.height = 700
 		self.setWindowTitle(self.title)
 		self.setGeometry(self.left, self.top, self.width, self.height)
 
@@ -52,7 +52,7 @@ class App(QMainWindow):
 
 		if fileName:
 			#start thread
-			self.t = TTT(fileName)
+			self.t = TTT(fileName, self.dpi)
 			self.t.taskFinished.connect(self.dw)
 			self.t.start()
 
@@ -84,7 +84,7 @@ class App(QMainWindow):
 
 		#display plots and render
 		self.ip = ISOplot
-		self.table_widget.make_plots(self.ip, self.dpi)
+		self.table_widget.make_plots(self.ip)
 
 		self.table_widget.render()
 		
@@ -103,10 +103,11 @@ class App(QMainWindow):
 class TTT(QThread):
 	taskFinished = pyqtSignal(ISOplot)
 
-	def __init__(self, path):
+	def __init__(self, path, dpi):
 		super(TTT, self).__init__()
 		self.quit_flag = False
 		self.path = path
+		self.dpi = dpi
 
 	def run(self):
 		self.doSomething()
@@ -115,6 +116,7 @@ class TTT(QThread):
 
 	def doSomething(self):
 		self.iso = ISOplot(self.path)
+		self.iso.generate_all(600, self.dpi/4) #first arg is plot size in px, TODO: make dynamic. 
 
 
 class MyPopup(QWidget):
@@ -131,7 +133,6 @@ class MyPopup(QWidget):
         self.progressBar.setRange(0,1)
         self.layout.addWidget(self.progressBar)
         
-
     def startBar(self):
     	self.progressBar.setRange(0,0)
 
@@ -175,7 +176,6 @@ class PlotWebRender(QMainWindow):
 		buf = io.BytesIO()
 
 		fig.savefig(buf, format='svg')
-		fig.savefig('hello.svg', format='svg')
 		buf.seek(0)
 		image_data = buf.read()
 
@@ -211,7 +211,6 @@ class MyTableWidget(QWidget):
 		self.tabs.addTab(self.tab5,"SD")
 
 		self.tw = self.tab1.frameGeometry().width()
-		print(self.tw)
 
 	def buildTable(self, cols, rows, width):
 		tableWidget = QTableWidget()
@@ -233,56 +232,24 @@ class MyTableWidget(QWidget):
 		tableWidget.setFixedWidth(width)
 		return tableWidget
 
-	def make_plots(self, ip, dpi):	
-		dpi = dpi / 4
-		print(dpi)
-
-		std_width = 230
+	def make_plots(self, ip):	
+		std_width = 230 #todo: make parem passing betwen isoplot class and this explicit. 
 		aa_width = 200
 		is_width = 250
 
-		w, h = (matplotlib.figure.figaspect(2.) * 5)
-
-		print(self.tw)
-
-		w = (self.tw-100)/dpi
-		fig = plt.figure(figsize=(w, w*2), dpi=dpi)
-		#fig = plt.figure(figsize=(12, 24), dpi=dpi)
-		ip.overview(fig=fig, gW=4)
-		#self.overview = ScrollableWindow(fig)
-		self.overview = PlotWebRender(fig)
+		self.overview = PlotWebRender(ip.OVER)
 		
-		#now try fixing with fig width...
-		w = (self.tw-aa_width)/dpi
-		fig = ip.aa_hist(gW=3, figsize=(w,w*3), dpi=dpi)
-		#self.aah = ScrollableWindow(fig)
-		self.aah = PlotWebRender(fig)
+		self.aah = PlotWebRender(ip.AA_H)
 
-		w = (self.tw-std_width)/dpi
-		fig = ip.std_hist(gW=3, figsize=(w, w * 4), dpi=dpi)
-		#self.sdp = ScrollableWindow(fig)
-		self.sdp = PlotWebRender(fig)
+		self.sdp = PlotWebRender(ip.STD_H)
 
-		w = (self.tw-is_width)/dpi
-		fig = ip.is_hist(figsize=(w, w*2), dpi=dpi)
-		#self.ish = ScrollableWindow(fig)
-		self.ish = PlotWebRender(fig)
+		self.ish = PlotWebRender(ip.IS_H)
 
-		#draw std out table
-		std_out = ip.std_out()
+		self.aa_tableWidget = self.buildTable(['Compound', 'Row', 'd13C'], ip.AA_T, aa_width)
 
-		self.tableWidget = self.buildTable(['Compound', 'Sample', 'd13C SD'], std_out, std_width)
+		self.tableWidget = self.buildTable(['Compound', 'Sample', 'd13C SD'], ip.STD_T, std_width)
 
-
-		#draw aa outlier table
-		aa_out = ip.aa_out()
-		self.aa_tableWidget = self.buildTable(['Compound', 'Row', 'd13C'], aa_out, aa_width)
-
-		#draw is outlier table
-		is_out = ip.is_out()
-
-		self.is_tableWidget = self.buildTable(['Type', 'Compound', 'Row', 'd13C'], is_out, is_width)
-
+		self.is_tableWidget = self.buildTable(['Type', 'Compound', 'Row', 'd13C'], ip.IS_T, is_width)
 
 	def render(self):
 		# Create tab
