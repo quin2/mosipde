@@ -3,9 +3,11 @@ import matplotlib
 matplotlib.use('Qt5Agg')
 
 from fbs_runtime.application_context.PyQt5 import ApplicationContext
-from PyQt5.QtWidgets import QMainWindow, QApplication, QPushButton, QWidget, QAction, QTabWidget, QVBoxLayout, QHBoxLayout, QScrollArea, QFileDialog, QProgressBar, QTableWidget, QTableWidgetItem, QHeaderView, QLabel
-from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import QMainWindow, QApplication, QPushButton, QWidget, QAction, QTabWidget, QVBoxLayout, QHBoxLayout, QScrollArea, QFileDialog, QProgressBar, QTableWidget, QTableWidgetItem, QHeaderView, QLabel,  QGraphicsScene, QGraphicsView
+from PyQt5.QtGui import QIcon, QPixmap, QImage, QPen, QBrush, QColor, QFont
 from PyQt5.QtCore import pyqtSlot, QThread, pyqtSignal, QRect, QThreadPool, QRunnable, QObject
+
+from PyQt5.QtSvg import QSvgWidget, QSvgRenderer, QGraphicsSvgItem
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
@@ -18,7 +20,7 @@ from pdb import set_trace as bp
 
 import threading
 
-import os,subprocess,time,traceback, time
+import os,subprocess,time,traceback, time, io
 
 import warnings
 import matplotlib.cbook
@@ -158,6 +160,34 @@ class ScrollableWindow(QMainWindow):
 		self.widget.layout().addWidget(self.nav)
 		self.widget.layout().addWidget(self.scroll)
 
+class PlotWebRender(QMainWindow):
+	def __init__(self, fig):
+		self.qapp = QApplication([])
+
+		QMainWindow.__init__(self)
+		self.widget = QWidget()
+		self.setCentralWidget(self.widget)
+		self.widget.setLayout(QVBoxLayout())
+		self.widget.layout().setContentsMargins(0,0,0,0)
+		self.widget.layout().setSpacing(0)
+
+		self.fig = fig
+		buf = io.BytesIO()
+
+		fig.savefig(buf, format='svg')
+		fig.savefig('hello.svg', format='svg')
+		buf.seek(0)
+		image_data = buf.read()
+
+		svgWidget = QSvgWidget()
+		svgWidget.renderer().load(image_data)
+
+		self.scroll = QScrollArea(self.widget)
+		self.scroll.setWidget(svgWidget)
+
+		self.widget.layout().addWidget(self.scroll)
+
+		buf.close()
 
 class MyTableWidget(QWidget):
 
@@ -216,23 +246,27 @@ class MyTableWidget(QWidget):
 		print(self.tw)
 
 		w = (self.tw-100)/dpi
-		w = w + 600
 		fig = plt.figure(figsize=(w, w*2), dpi=dpi)
+		#fig = plt.figure(figsize=(12, 24), dpi=dpi)
 		ip.overview(fig=fig, gW=4)
-		self.overview = ScrollableWindow(fig)
+		#self.overview = ScrollableWindow(fig)
+		self.overview = PlotWebRender(fig)
 		
 		#now try fixing with fig width...
 		w = (self.tw-aa_width)/dpi
 		fig = ip.aa_hist(gW=3, figsize=(w,w*3), dpi=dpi)
-		self.aah = ScrollableWindow(fig)
+		#self.aah = ScrollableWindow(fig)
+		self.aah = PlotWebRender(fig)
 
 		w = (self.tw-std_width)/dpi
 		fig = ip.std_hist(gW=3, figsize=(w, w * 4), dpi=dpi)
-		self.sdp = ScrollableWindow(fig)
+		#self.sdp = ScrollableWindow(fig)
+		self.sdp = PlotWebRender(fig)
 
 		w = (self.tw-is_width)/dpi
 		fig = ip.is_hist(figsize=(w, w*2), dpi=dpi)
-		self.ish = ScrollableWindow(fig)
+		#self.ish = ScrollableWindow(fig)
+		self.ish = PlotWebRender(fig)
 
 		#draw std out table
 		std_out = ip.std_out()
