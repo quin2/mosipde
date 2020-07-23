@@ -1,0 +1,151 @@
+	"""
+	def run(self):
+		self.stopped = False
+		self.run_threaded_process(self.test, self.process, self.completed)
+
+	def process(self):
+		return
+
+	def run_threaded_process(self, process, progress_fn, on_complete):
+		#Execute a function in the background with a worker
+
+		worker = Worker(fn=process)
+		self.threadpool.start(worker)
+		worker.signals.finished.connect(on_complete)
+		worker.signals.progress.connect(progress_fn)
+		self.w.startBar()
+		return
+
+	def stop(self):
+		self.stopped=True
+		return
+
+	def completed(self):
+		self.w.stopBar()
+		print("done")
+		return
+
+	def test(self):
+		#Do some process here
+		self.ip = ISOplot(self.filename)
+		while self.ip.done:
+			return
+		if self.stopped == True:
+			return
+
+
+	def onFinished(self, ip):
+		# Stop the pulsation
+		self.w.stopBar()
+		self.w.close()
+
+		#using above line instead causes tab, but machine doesn't crash..hmm..
+
+		#connect main view
+		self.table_widget = MyTableWidget(self, ip=ip)
+		self.setCentralWidget(self.table_widget)
+
+		self.task_ip.stop()
+		self.task_ip.wait()
+
+		#show application view
+	"""
+
+
+"""
+class Worker(QRunnable):
+	#Worker thread for running background tasks.
+
+	def __init__(self, fn, *args, **kwargs):
+		super(Worker, self).__init__()
+		# Store constructor arguments (re-used for processing)
+		self.fn = fn
+		self.args = args
+		self.kwargs = kwargs
+		self.signals = WorkerSignals()
+		self.kwargs['progress_callback'] = self.signals.progress
+
+	@pyqtSlot()
+	def run(self):
+		try:
+			result = self.fn(
+				*self.args, **self.kwargs,
+			)
+		except:
+			traceback.print_exc()
+			exctype, value = sys.exc_info()[:2]
+			self.signals.error.emit((exctype, value, traceback.format_exc()))
+		else:
+			self.signals.result.emit(result)
+		finally:
+			self.signals.finished.emit()
+
+class WorkerSignals(QObject):
+	finished = pyqtSignal()
+	error = pyqtSignal(tuple)
+	result = pyqtSignal(object)
+	progress = pyqtSignal(int)
+
+
+def transform_worker(filename):
+	ip = ISOplot(filename)
+
+class TaskThread(QThread):
+	taskFinished = pyqtSignal(ISOplot)
+
+	def __init__(self, filename, parent=None):
+		QThread.__init__(self, parent)
+		self.filename = filename
+		self.active = True
+
+	def __del__(self):
+		self.wait()
+
+	def stop(self):
+		self.active = False
+
+	def run(self):
+		while self.active:
+			ip = ISOplot(self.filename)
+			if ip.done:
+				self.taskFinished.emit(ip)
+				self.active = False
+
+class TaskThread(QThread):
+	taskFinished = pyqtSignal(ISOplot)
+
+	def __init__(self, filename, parent=None):
+		QThread.__init__(self, parent)
+
+		self.window = parent
+
+		self._lock = threading.Lock()
+		self.running = False
+
+		self.filename = filename
+
+	def stop(self):
+		self.running = False
+		print('received stop signal from window.')
+		with self._lock:
+			self._do_before_done()
+
+	def _do_work(self):
+		ip = ISOplot(self.filename)
+		if ip.done:
+			self.taskFinished.emit(ip) 
+			self.running = False
+
+	def _do_before_done(self):
+		print('waiting 3 seconds before thread done..')
+		for i in range(3, 0, -1):
+			print('{0} seconds left...'.format(i))
+			self.sleep(1)
+		print('ok, thread done.')
+
+	def run(self):
+		self.running = True
+		while self.running:
+			with self._lock:
+				self._do_work()
+"""
