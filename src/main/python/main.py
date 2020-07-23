@@ -90,7 +90,7 @@ class App(QMainWindow):
 	def openFileNameDialog(self):
 		options = QFileDialog.Options()
 		options |= QFileDialog.DontUseNativeDialog
-		fileName, _ = QFileDialog.getOpenFileName(self,"QFileDialog.getOpenFileName()", "","All Files (*);;Excel Files (*.xls)", options=options)
+		fileName, _ = QFileDialog.getOpenFileName(self,"Select Isodat Output for Analysis", "","Excel Files (*.xls)", options=options)
 		return fileName
 
 	#handle window close manually
