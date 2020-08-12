@@ -42,8 +42,8 @@ class App(QMainWindow):
 	def __init__(self):
 		super().__init__()
 		self.title = 'ISOviewer'
-		self.left = 0
-		self.top = 0
+		self.left = 10
+		self.top = 30
 		self.width = 1100
 		self.height = 700
 		self.setWindowTitle(self.title)
