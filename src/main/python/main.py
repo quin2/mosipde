@@ -211,8 +211,8 @@ class App(QMainWindow):
 	@pyqtSlot()
 	def reload(self):
 		self.ip.generate_all(600, self.dpi/4)
-		#self.table_widget.make_plots(self.ip) #this is where the segfault occurs
 		self.table_widget.reload()
+		self.ip.export()
 		return
 
 	@pyqtSlot()
@@ -514,7 +514,7 @@ class NormalizeWidget(QWidget):
 		self.exclude = SmartListWidget(parent)
 		self.layout.addRow(self.tr("&QC Standard Exclusions:"), self.exclude)
 
-		self.go= QPushButton('Correct', self)
+		self.go= QPushButton('Run', self)
 		self.go.clicked.connect(self.runCorrections)
 		self.layout.addWidget(self.go)
 
@@ -536,26 +536,27 @@ class NormalizeWidget(QWidget):
 
 	@pyqtSlot()
 	def runCorrections(self):
-		#load data again
-		self.loadData()
+		with wait_cursor():
+			#load data again
+			self.loadData()
 
-		#set isoplot object
-		self.corrector.set_ip(self.ip)
-		
-		standard = self.comboStandard.currentText()
-		exclusions = self.exclude.excludeRows
-		
-		if self.single.isChecked():
-			mode = self.comboQC.currentData()
-			self.corrector.correct_individual(standard, mode, exclusions)
+			#set isoplot object
+			self.corrector.set_ip(self.ip)
+			
+			standard = self.comboStandard.currentText()
+			exclusions = self.exclude.excludeRows
+			
+			if self.single.isChecked():
+				mode = self.comboQC.currentData()
+				self.corrector.correct_individual(standard, mode, exclusions)
 
-		if not self.single.isChecked():
-			mode = self.comboQC.currentData()
-			self.corrector.correct_all(standard, mode, exclusions)
+			if not self.single.isChecked():
+				mode = self.comboQC.currentData()
+				self.corrector.correct_all(standard, mode, exclusions)
 
 
-		#save result
-		self.ip.export()
+			#save result
+			self.ip.export()
 
 		return
 
@@ -730,16 +731,6 @@ class MyTableWidget(QWidget):
 		updateTableWidget(self.tab4, self.ip.STD_T)
 		updateTableWidget(self.tab5, self.ip.AA_T)
 
-		return
-
-	def clearLayout(self,layout):
-		#for i in reversed(range(layout.count())): 
-		print("starting clear")
-		
-		print(stuff)
-		
-
-		print("done")
 		return
 
 	def render(self):
