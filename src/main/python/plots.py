@@ -12,6 +12,8 @@ from matplotlib import gridspec
 import math
 import glob
 import os
+import gc
+import copy
 
 from datetime import datetime
 
@@ -22,13 +24,21 @@ from sklearn.base import BaseEstimator
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import mean_squared_error, r2_score
 
+import xlsxwriter
+
 class ISOplot:
 
 	def __init__(self, filePath):
-		df = pd.read_excel(filePath)
+		self.filePath = filePath
+		
+	def load(self):
+		self.df = pd.read_excel(self.filePath)
+		self.original_df = copy.deepcopy(self.df)
+		self.chart_all()
 
+	def chart_all(self):
 		#load _all chart
-		self._all = pd.concat([self.__generateChem(df2) for _, df2 in df.groupby(['Identifier 1', 'Identifier 2'])])
+		self._all = pd.concat([self.__generateChem(df2) for _, df2 in self.df.groupby(['Identifier 1', 'Identifier 2'])])
 		self._all = self._all.sort_index()
 
 		#create aa chart
@@ -45,17 +55,35 @@ class ISOplot:
 		is_avg = temp_is.apply(np.mean, axis=0)
 		self._is = pd.concat([is_std, is_avg], axis=1, keys=['SD', 'mean'])
 
-		self.done = True
+		#create NACME
+		nacme = []
+		out = self._all['Identifier 1'].unique()
+		out = np.delete(out, np.argwhere(out=='AA std'))
 
-	def done():
-		return self.done
+		for sample in out:
+			data = self._all[self._all['Identifier 1'] == sample]
+			for compound in data.columns[2:]:
+				alj = data[compound].values
+				if not np.isnan(np.sum(alj)):
+					nacme.append([data.index.values[0], sample, compound, alj[0], alj[1], alj[2], 
+								  np.mean(alj), np.std(alj), (np.std(alj)/np.sqrt(len(alj)))])
+
+		cNames = ['Row', 'Sample', 'AA', 'Inj_1', 'Inj_2', 'Inj_3', 'Mean', 'SD_inj', 'SE']
+		self.nacme = pd.DataFrame(data=nacme, columns=cNames)
+
+		#create check
+		self.check = self._all[self._all['Identifier 1'] == 'Check S']
+
 
 	def generate_all(self, tw, dpi):
+		self.chart_all()
+
 		std_width = 230
 		aa_width = 200
 		is_width = 250
 
 		w = (tw-100)/dpi
+		#self.OVER = plt.figure(figsize=(w, w*2), dpi=dpi)
 		self.OVER = self.overview(figsize=(w, w*2), dpi=dpi)
 
 		w = (tw-aa_width)/dpi
@@ -72,6 +100,7 @@ class ISOplot:
 
 	def overview(self, gW=4, figsize=(20,50), dpi=20):
 		fig = plt.figure(figsize=figsize, dpi=dpi)
+		r = fig.canvas.get_renderer()
 
 		compounds = self._all.drop(['Identifier 1', 'Identifier 2'], axis=1).columns
 
@@ -98,7 +127,6 @@ class ISOplot:
 
 			t = fig.text(x=xpos, y=bbox[1][1] + 0.0025, s=str(compound), fontweight='bold', fontsize=15)
 
-			r = fig.canvas.get_renderer()
 			bb = t.get_window_extent(renderer=r)
 			tt = fig.transFigure.inverted().transform((bb.width, bb.height))
 
@@ -115,17 +143,17 @@ class ISOplot:
 		plt.subplots_adjust(hspace=0.5)
 
 		for idx, compound in enumerate(self.aa.index):
-		    i = idx % gW
-		    j = math.floor(idx / gW)
-		    
-		    std_raw = self._all[self._all['Identifier 1'] == 'AA std']
-		    std = std_raw[compound]
-		    std = std.dropna()
-		    
-		    self.__generate_hist(ax[j, i], std, toff=-0.25)
-		    
-		    ax[j, i].title.set_text("AA Standard " + compound)
-		    
+			i = idx % gW
+			j = math.floor(idx / gW)
+			
+			std_raw = self._all[self._all['Identifier 1'] == 'AA std']
+			std = std_raw[compound]
+			std = std.dropna()
+			
+			self.__generate_hist(ax[j, i], std, toff=-0.25)
+			
+			ax[j, i].title.set_text("AA Standard " + compound)
+			
 		return fig
 
 	def aa_out(self):
@@ -137,7 +165,7 @@ class ISOplot:
 
 		samples = self._all['Identifier 1'].unique()
 		samples = np.delete(samples, np.where(samples == 'AA std'))
-		    
+			
 		all_sd = [self.__my_std(self._all[self._all['Identifier 1'] == sample]) for sample in samples]
 		all_sd = pd.concat(all_sd, keys=samples, axis=1).T
 		all_sd = all_sd.drop('Identifier 2', axis=1)
@@ -149,13 +177,13 @@ class ISOplot:
 		plt.subplots_adjust(left=0.1, right=0.9, bottom=0.1, top=0.9, hspace=0.5)
 
 		for idx, col in enumerate(all_sd.columns):
-		    i = idx % gW
-		    j = math.floor(idx / gW)
-		    
-		    self.__generate_hist(ax[j, i], all_sd[col].dropna(), toff=-0.16)
-		    
-		    ax[j, i].set_title(col, fontdict={'fontsize': 16, 'fontweight': 'bold'})
-		    
+			i = idx % gW
+			j = math.floor(idx / gW)
+			
+			self.__generate_hist(ax[j, i], all_sd[col].dropna(), toff=-0.16)
+			
+			ax[j, i].set_title(col, fontdict={'fontsize': 16, 'fontweight': 'bold'})
+			
 		return fig
 
 	def std_out(self):
@@ -163,7 +191,7 @@ class ISOplot:
 
 		samples = self._all['Identifier 1'].unique()
 		samples = np.delete(samples, np.where(samples == 'AA std'))
-		    
+			
 		all_sd = [self.__my_std(self._all[self._all['Identifier 1'] == sample]) for sample in samples]
 		all_sd = pd.concat(all_sd, keys=samples, axis=1).T
 		all_sd = all_sd.drop('Identifier 2', axis=1)
@@ -181,17 +209,17 @@ class ISOplot:
 
 		fig, ax = plt.subplots(len(self._is.index), 2, figsize=figsize, dpi=dpi)
 
-		    
+			
 		for idx, compound in enumerate(self._is.index):    
-		    std = std_raw[compound]
-		    test = test_raw[compound]
-		    
-		    self.__generate_hist(ax[idx, 0], std, toff=-0.12)
-		    self.__generate_hist(ax[idx, 1], test, toff=-0.12)
-		    
-		    ax[idx, 0].title.set_text("AA Standard " + compound)
-		    ax[idx, 1].title.set_text("Test " + compound)
-		    
+			std = std_raw[compound]
+			test = test_raw[compound]
+			
+			self.__generate_hist(ax[idx, 0], std, toff=-0.12)
+			self.__generate_hist(ax[idx, 1], test, toff=-0.12)
+			
+			ax[idx, 0].title.set_text("AA Standard " + compound)
+			ax[idx, 1].title.set_text("Test " + compound)
+			
 		return fig
 
 	def is_out(self):
@@ -211,6 +239,60 @@ class ISOplot:
 
 		return standard + test
 
+	def changeCell(self, row, component, new):
+		selector = (self.df['Row'] == row) & (self.df.Component == component)
+		old = self.original_df[selector]['d 13C/12C'].values[0]
+		comment = "Changed from %.3f to %.3f" % (old, new)
+		#write comment
+		self.df.loc[selector, 'Notes'] = comment
+		#write value
+		self.df.loc[selector, 'd 13C/12C'] = new
+
+		return
+
+
+	def export(self):
+		self.chart_all()
+
+		_, oldFileName = os.path.split(self.filePath)
+		oldFileName = os.path.splitext(oldFileName)[0]
+		path = os.path.join(self.out_folder_path, oldFileName + '.xlsx')
+
+		with pd.ExcelWriter(path, engine='xlsxwriter') as writer:
+			#self.df.to_excel(writer, sheet_name='GC.wke', header=False, index=False)
+			self.__writeWorkbook(writer=writer, sheet_name='GC.wke', df=self.original_df)
+			self.__writeWorkbook(writer=writer, sheet_name='newGC', df=self.df) #TODO
+			self.__writeWorkbook(writer=writer, sheet_name='Log', indexName="Row", df=self._all)
+			self.__writeWorkbook(writer=writer, sheet_name='CHECK', indexName="Row", df=self.check)
+			self.__writeWorkbook(writer=writer, sheet_name='AA', indexName="Compound", df=self.aa)
+			self.__writeWorkbook(writer=writer, sheet_name='IS', indexName="Compound", df=self._is)
+			self.__writeWorkbook(writer=writer, sheet_name='NACME', df=self.nacme) #may have to do index=False
+
+		return
+
+	def __writeWorkbook(self, writer, sheet_name, df, indexName=None):
+		column_list = [x for x in df.columns]
+
+		offset = 0
+		if indexName:
+			offset = 1
+			column_list.insert(0, indexName)
+		
+		df.to_excel(writer, sheet_name=sheet_name, startrow=1, startcol=offset, header=False, index=False)
+
+		worksheet = writer.sheets[sheet_name]
+
+		for idx, val in enumerate(column_list):
+			worksheet.write(0, idx, val)
+
+		row_list = df.index
+		if indexName:
+			for idx, val in enumerate(row_list):
+				worksheet.write(idx+1, 0, val)
+
+		return
+
+
 	def __find_outl_array(self, data, compounds):
 		final = []
 
@@ -223,29 +305,29 @@ class ISOplot:
 		return final
 
 	def __find_outliers_boolean(self, data):
-	    upper, lower = self.__outlier(data)
-	    outl = ~data.between(lower, upper)
-	        
-	    return outl
+		upper, lower = self.__outlier(data)
+		outl = ~data.between(lower, upper)
+			
+		return outl
 
 	def __my_std(self, data):
-	    if len(data) == 3:
-	        return np.std(data)
-	    else:
-	        return data.iloc[0] - data.iloc[1]
+		if len(data) == 3:
+			return np.std(data)
+		else:
+			return data.iloc[0] - data.iloc[1]
 
 	def __iqr(self, x):
-	    q75, q25 = np.percentile(x, [75 ,25])
-	    iqr = q75 - q25
-	    return iqr
-    
+		q75, q25 = np.percentile(x, [75 ,25])
+		iqr = q75 - q25
+		return iqr
+	
 	#use Freedman-Diaconis rule to decide bin size
 	def __binSize(self, data):
-	    bw = 2 * self.__iqr(data) / (len(data) ** 1/3)
-	    if bw == 0:
-	        return 1
-	    bins = math.ceil((data.max() - data.min()) / bw)
-	    return bins
+		bw = 2 * self.__iqr(data) / (len(data) ** 1/3)
+		if bw == 0:
+			return 1
+		bins = math.ceil((data.max() - data.min()) / bw)
+		return bins
 
 	#generate histogram for axis
 	def __generate_hist(self, ax, data, toff=-0.15):
@@ -261,24 +343,24 @@ class ISOplot:
 		ax.vlines(self.__outlier(data), *ax.get_ylim(), linestyle="dotted")
 
 		infoSummery = "mean: %f, sd: %f" % (np.mean(data), np.std(data))
-		ax.text(0.0, toff, s=infoSummery, transform=ax.transAxes, fontsize=16)
+		ax.text(0.0, toff, s=infoSummery, transform=ax.transAxes, fontsize=14)
 
 		return
 
 
 	def __generateChem(self, df):
-	    aa = df[['Row', 'Component', 'd 13C/12C']]
-	    aa = aa.drop(aa[aa['Component'] == 'Blank'].index)
-	    
-	    aa = aa.drop(aa[pd.isna(aa['Component'])].index)
+		aa = df[['Row', 'Component', 'd 13C/12C']]
+		aa = aa.drop(aa[aa['Component'] == 'Blank'].index)
+		
+		aa = aa.drop(aa[pd.isna(aa['Component'])].index)
 
-	    out = aa.pivot(index='Row', columns='Component', values='d 13C/12C').bfill().iloc[[0],:]
-	    out.insert(0, 'Identifier 1', df['Identifier 1'].unique())
-	    out.insert(1, 'Identifier 2', df['Identifier 2'].unique())
+		out = aa.pivot(index='Row', columns='Component', values='d 13C/12C').bfill().iloc[[0],:]
+		out.insert(0, 'Identifier 1', df['Identifier 1'].unique())
+		out.insert(1, 'Identifier 2', df['Identifier 2'].unique())
 
-	    out.columns.name = None
+		out.columns.name = None
 
-	    return out
+		return out
 
 	def __outlier(self, data):
 		osd = np.std(data)
@@ -316,7 +398,7 @@ class ISOplot:
 		work = work[(work < upper) & (work > lower)]
 
 		if len(work) < 2:
-		    return
+			return
 
 		X = np.array(work.index).reshape(-1,1)
 
@@ -337,5 +419,101 @@ class ISOplot:
 		ax3.plot(model_range, clf.predict(model_range_transform), color=color)
 
 		ax3.text(x=0.7, y=0.05, transform=ax3.transAxes, s="r^2=%0.3f" % r2)
+
+		return
+
+class Corrections:
+	#load file where standards are stored
+	def __init__(self, data):
+		self.standard = data
+
+	#get list of all standards in file
+	def get_all_standards(self):
+		return self.standard.Standard.unique().tolist()
+
+	#set local version of ISOplot data. 
+	def set_ip(self, ISOplot):
+		self.data = ISOplot
+
+	#correct based on all internal QC
+	def correct_all(self, s_name, sw, exclusions=[], p_C=0.5):
+		#set standard
+		corr = self.standard[self.standard.Standard == s_name]
+		
+		allQC = self.data._all[self.data._all['Identifier 1'] == 'AA std']
+
+		for compound in corr.Compound:
+			der_sample_mean = self.data.nacme[self.data.nacme.AA == compound].Mean
+			
+			indicies = self.data.nacme[self.data.nacme.AA == compound].Row.values
+			
+			before = [allQC[allQC.index < x].iloc[0][compound] for x in indicies]
+			after = [allQC[allQC.index > x].iloc[0][compound] for x in indicies]
+			
+			if sw == 0: der_standard = np.mean(allQC[compound])  
+			elif sw == 1: der_standard = before
+			elif sw == 2: der_standard = after
+			elif sw == 3: der_standard = np.mean([before, after])
+			else: return
+				
+			d13C = corr[corr.Compound == compound].d13C.values[0]
+
+			corrected = (der_sample_mean - der_standard) * p_C + d13C
+
+			current_sample = self.data.nacme[(self.data.nacme.AA == compound) & (self.data.nacme.Sample != 'AA std')].Sample
+
+			for id1 in current_sample:
+				#danger: will modefy seed data
+				self.data.df.loc[(self.data.df['Identifier 1'] == id1) & (self.data.df.Component == compound), 'd 13C/12C'] = corrected
+		return
+
+	"""
+	0:sample mean
+	1:std before
+	2:std after
+	3:mean of before/after
+	"""
+	def correct_individual(self, s_name, sw, exclusions = [], p_C=0.5):
+		#set standard
+		corr = self.standard[self.standard.Standard == s_name]
+		
+		allQC = self.data._all[self.data._all['Identifier 1'] == 'AA std']
+		
+		for idx, row in self.data.nacme.iterrows(): #could reduce this to map...
+			samp = np.mean([row.Inj_1, row.Inj_2, row.Inj_3])
+			
+			before = allQC[allQC.index < row.Row].iloc[0][row.AA]
+			after = allQC[allQC.index > row.Row].iloc[0][row.AA]
+			bam = np.mean([before, after])
+			
+			if sw == 0: der_standard = np.mean(allQC[row.AA])
+			elif sw == 1: der_standard = before
+			elif sw == 2: der_standard = after
+			elif sw == 3: der_standard = bam
+			
+			if len(corr[corr.Compound == row.AA]) > 0:
+				d13C = corr[corr.Compound == row.AA].d13C.values[0]
+
+				corrected = (samp - der_standard) * p_C + d13C
+
+				#danger: below will modefy seed data
+				self.data.df.loc[(self.data.df['Identifier 1'] == row.Sample) & (self.data.df.Component == row.AA), 'd 13C/12C'] = corrected
+		return
+		
+
+	def make_chart(self, corr, dpi=22):
+		fig = plt.figure(dpi=dpi)
+
+		der_standard = self.data._all[self.data._all['Identifier 1'] == 'AA std'][corr.AA]
+		y = self.data._all[self.data._all['Identifier 1'] == 'AA std'].index
+
+		pn = range(len(der_standard))
+		fig.scatter(y=der_standard, x=pn)
+		fig.scatter(y=[corr.d13C] * len(der_standard), x=pn, marker="_")
+		fig.set_xticks(ticks=pn, labels=y)
+		fig.ylabel("d13c" + corr.AA)
+		fig.xlabel("Row")
+
+		self.chart = fig
 
 		return
