@@ -79,7 +79,7 @@ class App(QMainWindow):
 
 		self.appctxt = ApplicationContext()
 
-		fileName = self.openFileNameDialog("Select Isodat Output for Analysis", "Excel Files (*.xls)")
+		fileName = self.openFileNameDialog("Select Isodat Output for Analysis", "Excel Files (*.xls *.xlsx)")
 
 		if fileName:
 			self.ip = ISOplot(fileName)
@@ -198,7 +198,7 @@ class App(QMainWindow):
 	@pyqtSlot()
 	def setCorrFile(self):
 		self.fp = self.appctxt.get_resource("../resources/standard.txt")
-		fileName = self.openFileNameDialog("Select Corrections File", "Excel Files (*.xlsx)")
+		fileName = self.openFileNameDialog("Select Corrections File", "Excel Files (*.xlsx);;Excel Files (*.xls)")
 		if fileName:
 			self.ip.corr_file_Path = fileName
 
@@ -210,9 +210,10 @@ class App(QMainWindow):
 
 	@pyqtSlot()
 	def reload(self):
-		self.ip.generate_all(600, self.dpi/4)
-		self.table_widget.reload()
-		self.ip.export()
+		with wait_cursor():
+			self.ip.generate_all(600, self.dpi/4)
+			self.table_widget.reload()
+			self.ip.export()
 		return
 
 	@pyqtSlot()

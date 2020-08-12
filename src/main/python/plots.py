@@ -317,7 +317,7 @@ class ISOplot:
 			return data.iloc[0] - data.iloc[1]
 
 	def __iqr(self, x):
-		q75, q25 = np.percentile(x, [75 ,25])
+		q75, q25 = np.nanpercentile(x, [75 ,25])
 		iqr = q75 - q25
 		return iqr
 	
@@ -331,19 +331,20 @@ class ISOplot:
 
 	#generate histogram for axis
 	def __generate_hist(self, ax, data, toff=-0.15):
-		binsize = self.__binSize(data)
-		ax.hist(data, bins=binsize, color='lightblue')
-		ax.vlines(np.mean(data), *ax.get_ylim())
+		if len(data) > 0:
+			binsize = self.__binSize(data)
+			ax.hist(data, bins=binsize, color='lightblue')
+			ax.vlines(np.mean(data), *ax.get_ylim())
 
-		ht = ax.transLimits.inverted().transform((1,1))[1]
-		boxWidth = self.__outlier(data)[0] - self.__outlier(data)[1]
-		aa_patch = Rectangle((self.__outlier(data)[1],0), width=boxWidth, height=ht, color='lightgreen', alpha=0.5)
-		ax.add_patch(aa_patch)    
+			ht = ax.transLimits.inverted().transform((1,1))[1]
+			boxWidth = self.__outlier(data)[0] - self.__outlier(data)[1]
+			aa_patch = Rectangle((self.__outlier(data)[1],0), width=boxWidth, height=ht, color='lightgreen', alpha=0.5)
+			ax.add_patch(aa_patch)    
 
-		ax.vlines(self.__outlier(data), *ax.get_ylim(), linestyle="dotted")
+			ax.vlines(self.__outlier(data), *ax.get_ylim(), linestyle="dotted")
 
-		infoSummery = "mean: %f, sd: %f" % (np.mean(data), np.std(data))
-		ax.text(0.0, toff, s=infoSummery, transform=ax.transAxes, fontsize=14)
+			infoSummery = "mean: %f, sd: %f" % (np.mean(data), np.std(data))
+			ax.text(0.0, toff, s=infoSummery, transform=ax.transAxes, fontsize=14)
 
 		return
 
