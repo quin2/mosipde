@@ -3,7 +3,7 @@ import matplotlib
 matplotlib.use('Qt5Agg')
 
 from fbs_runtime.application_context.PyQt5 import ApplicationContext
-from PyQt5.QtWidgets import QMainWindow, QApplication, QPushButton, QWidget, QAction, QTabWidget, QVBoxLayout, QHBoxLayout, QScrollArea, QFileDialog, QProgressBar, QTableWidget, QTableWidgetItem, QHeaderView, QLabel,  QGraphicsScene, QGraphicsView, QComboBox, QRadioButton, QLineEdit, QFormLayout, QListWidget, QPushButton, QErrorMessage, QMessageBox, QApplication, QAction
+from PyQt5.QtWidgets import QMainWindow, QApplication, QPushButton, QWidget, QAction, QTabWidget, QVBoxLayout, QHBoxLayout, QScrollArea, QFileDialog, QProgressBar, QTableWidget, QTableWidgetItem, QHeaderView, QLabel,  QGraphicsScene, QGraphicsView, QComboBox, QRadioButton, QLineEdit, QFormLayout, QListWidget, QPushButton, QErrorMessage, QMessageBox, QApplication, QAction, QAbstractItemView
 from PyQt5.QtGui import QIcon, QPixmap, QIntValidator, QCursor, QClipboard, QImage
 from PyQt5.QtCore import pyqtSlot, QThread, pyqtSignal, QRect, QObject, Qt, QVariant, QMutex
 
@@ -55,6 +55,7 @@ class App(QMainWindow):
 		openAction.setDisabled(True) #set disabled until we can make this stable...
 		opsetAction = self.makeMenuItem("&Set Ouput", "", "Set Output Folder", self.setSaveFolder)
 		corrsetAction = self.makeMenuItem("&Set Corrections", "", "Set Corrections File", self.setCorrFile)
+		psetAction = self.makeMenuItem("&Set p^-1", "", "&Set p^-1 File", self.setPFile)
 
 		#reloadAction is also super unstable right now
 		reloadAction = self.makeMenuItem("&Reload Plots", "CTRL+R", "Reload plots with new data", self.reload)
@@ -68,6 +69,7 @@ class App(QMainWindow):
 		fileMenu.addAction(openAction)
 		fileMenu.addAction(opsetAction)
 		fileMenu.addAction(corrsetAction)
+		fileMenu.addAction(psetAction)
 
 		plotsMenu = mainMenu.addMenu('&Plots')
 		plotsMenu.addAction(reloadAction)
@@ -152,7 +154,6 @@ class App(QMainWindow):
 
 		self.table_widget.render()
 		
-
 	def openFileNameDialog(self, header, include):
 		options = QFileDialog.Options()
 		options |= QFileDialog.DontUseNativeDialog
@@ -197,6 +198,7 @@ class App(QMainWindow):
 
 	@pyqtSlot()
 	def setCorrFile(self):
+		"""
 		self.fp = self.appctxt.get_resource("../resources/standard.txt")
 		fileName = self.openFileNameDialog("Select Corrections File", "Excel Files (*.xlsx);;Excel Files (*.xls)")
 		if fileName:
@@ -206,6 +208,17 @@ class App(QMainWindow):
 			wr.write(fileName)
 		else: #no file picked
 			return
+		return
+		"""
+		self.cori = StorageFile("../resources/standard.txt", "Corrections", self)
+		self.cori.load_new_data()
+		return
+
+
+	@pyqtSlot()
+	def setPFile(self):
+		self.pp = StorageFile("../resources/p.txt", "p^-1", self)
+		self.pp.load_new_data()
 		return
 
 	@pyqtSlot()
@@ -244,8 +257,54 @@ class TTT(QThread):
 	def doSomething(self, ip):
 		mutex.lock()
 		ip.load()
-		#ip.generate_all(600, 25) #first arg is plot size in px, TODO: make dynamic. 
 		mutex.unlock()
+
+class StorageFile():
+	def __init__(self, rfp, dname, parent):
+		self.appctxt = ApplicationContext()
+
+		self.dname = dname
+		self.path = self.appctxt.get_resource(rfp)
+		self.parent = parent
+
+	def get_data(self):
+		f = open(self.path, "r+")
+		txt = f.read()
+
+		if(len(txt) == 0): #if file is bad...
+			self.__loader(f)
+		else:
+			self.excel_path = txt
+
+		tries = 2
+		for i in range(tries):
+			try:
+				data = pd.read_excel(self.excel_path)
+			except (FileNotFoundError, IsADirectoryError):
+				self.__loader()
+				continue
+			else:
+				return data
+
+	def load_new_data(self):
+		self.__loader()
+
+	def __loader(self, fileStream=None):
+		if fileStream is None:
+			fileStream=open(self.path, 'w')
+		fileName = self.openFileNameDialog()
+		if fileName:
+			self.excel_path = fileName
+			fileStream.write(fileName)
+		else: #no file picked
+			return
+
+	def openFileNameDialog(self):
+		options = QFileDialog.Options()
+		options |= QFileDialog.DontUseNativeDialog
+		fileName, _ = QFileDialog.getOpenFileName(self.parent,"Select " + self.dname + " file", "","Excel Files (*.xlsx);;Excel Files (*.xls)", options=options)
+		return fileName
+
 
 class MyPopup(QWidget):
     def __init__(self):
@@ -340,60 +399,6 @@ class PlotWebRender(QMainWindow):
 		buf.close()
 		return
 
-class EditableListWidget(QWidget):
-	def __init__(self, parent):
-		super(QWidget, self).__init__(parent)
-
-		self.layout = QVBoxLayout()
-
-		self.title = QLabel("Rows")
-		self.layout.addWidget(self.title)
-
-		self.listWidget = QListWidget()
-		self.listWidget.itemClicked.connect(self.enableRemove)
-		self.layout.addWidget(self.listWidget)
-
-		self.buttonRow = QHBoxLayout()
-
-		self.plus = QPushButton('Add', self)
-		self.plus.clicked.connect(self.handleAdd) 
-		self.buttonRow.addWidget(self.plus)
-
-		self.minus = QPushButton('Remove', self)
-		self.minus.clicked.connect(self.handleRemove) 
-		self.minus.setEnabled(False)
-		self.buttonRow.addWidget(self.minus)
-
-		self.buttonContainer = QWidget()
-		self.buttonContainer.setLayout(self.buttonRow)
-		self.layout.addWidget(self.buttonContainer)
-
-		self.setLayout(self.layout)
-
-	def handleAdd(self):
-		self.listWidget.addItem("0")
-
-	def enableRemove(self, item):
-		self.minus.setEnabled(True)
-
-		if item is not None:
-			item.setFlags(item.flags() | Qt.ItemIsEditable)
-			item.setSelected(True)
-
-	def handleRemove(self):
-		item = self.listWidget.currentItem()
-		#self.listWidget.takeItem(self.listWidget.row(item))
-		#print(self.listWidget.row(item))
-		index = self.listWidget.row(item)
-		if index is not None:
-			self.listWidget.takeItem(index)
-
-		if self.listWidget.count() == 0:
-			self.minus.setEnabled(False)
-
-	def allItems(self):
-		return [self.listWidget.item(i).text() for i in range(self.listWidget.count())]
-
 class SmartListWidget(QWidget):
 	def __init__(self, parent):
 		super(QWidget, self).__init__(parent)
@@ -460,6 +465,14 @@ class NormalizeWidget(QWidget):
 
 		self.appctxt = ApplicationContext()
 
+		#replace
+		self.cori = StorageFile("../resources/standard.txt", "Corrections", self)
+		
+		data = self.cori.get_data()
+		if data is None: return
+		self.corrector = Corrections(data)
+
+		"""
 		#get file here
 		self.fp = self.appctxt.get_resource("../resources/standard.txt")
 		f = open(self.fp, "r+")
@@ -478,6 +491,7 @@ class NormalizeWidget(QWidget):
 
 		#load data & repair filepath if we need to
 		self.loadData()
+		"""
 
 		self.ip = parent.ip
 
@@ -511,10 +525,6 @@ class NormalizeWidget(QWidget):
 		self.comboQC.addItem("Avg. of preceding/following STD", QVariant(3))
 		self.layout.addRow(self.tr("&Reference Values:"), self.comboQC)
 
-		self.exclude = EditableListWidget(self)
-		self.exclude = SmartListWidget(parent)
-		self.layout.addRow(self.tr("&QC Standard Exclusions:"), self.exclude)
-
 		self.go= QPushButton('Run', self)
 		self.go.clicked.connect(self.runCorrections)
 		self.layout.addWidget(self.go)
@@ -538,14 +548,15 @@ class NormalizeWidget(QWidget):
 	@pyqtSlot()
 	def runCorrections(self):
 		with wait_cursor():
-			#load data again
-			self.loadData()
+			data = self.cori.get_data()
+			if data is None: return
+			self.corrector = Corrections(data)
 
 			#set isoplot object
 			self.corrector.set_ip(self.ip)
 			
 			standard = self.comboStandard.currentText()
-			exclusions = self.exclude.excludeRows
+			exclusions = []
 			
 			if self.single.isChecked():
 				mode = self.comboQC.currentData()
@@ -581,7 +592,7 @@ class NormalizeWidget(QWidget):
 
 		fileName= QFileDialog.getExistingDirectory(self, "Select location to save corrected files", options=options)
 		return fileName
-
+	"""
 	def loadData(self):
 		#check for/repair bad filepath
 		tries = 3
@@ -607,7 +618,11 @@ class NormalizeWidget(QWidget):
 			self.handleError("Connections file is malformed. Repair and try again")
 			return
 
+		self.corrector_p = StorageFile("../resources/p.txt", "p^-1", self).get_data()
+
 		return
+	"""
+
 
 class MyTableWidget(QWidget):
 
@@ -627,9 +642,9 @@ class MyTableWidget(QWidget):
 
 		# Add tabs
 		self.tabs.addTab(self.tab1, "Overview")
-		self.tabs.addTab(self.tab3, "Test/Sample IS")
+		self.tabs.addTab(self.tab3, "Standard/Sample IS")
 		self.tabs.addTab(self.tab4, "AA Standard")
-		self.tabs.addTab(self.tab5, "SD")
+		self.tabs.addTab(self.tab5, "Sample SD")
 		self.tabs.addTab(self.tab6, "De-derivatization")
 
 	def buildTable(self, cols, rows, width):
@@ -651,31 +666,8 @@ class MyTableWidget(QWidget):
 
 		tableWidget.setFixedWidth(width)
 
-		#i think this is causing it
-		tableWidget.cellChanged.connect(self.tableEdited) #connect to 
+		tableWidget.setEditTriggers(QAbstractItemView.NoEditTriggers)
 		return tableWidget
-
-	@pyqtSlot(int, int)
-	def tableEdited(self, r, c):
-
-		if(self.tabs.currentIndex() == 1 or self.tabs.currentIndex() == 2):
-			#only change for first two tabs for now...
-			if(self.tabs.currentIndex() == 1):
-				#get old item
-				comp = self.is_tableWidget.item(r, 1).text()
-				row = int(self.is_tableWidget.item(r, 2).text())
-				#get new item
-				new = float(self.is_tableWidget.item(r, c).text())
-
-			elif(self.tabs.currentIndex() == 2):
-				#get old item
-				comp = self.aa_tableWidget.item(r, 0).text()
-				row = int(self.aa_tableWidget.item(r, 1).text())
-				#get new item
-				new = float(self.aa_tableWidget.item(r, c).text())
-
-			self.ip.changeCell(row, comp, new)
-		return
 
 	def make_plots(self, ip):	
 		std_width = 230 #todo: make parem passing betwen isoplot class and this explicit. 

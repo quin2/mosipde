@@ -218,7 +218,7 @@ class ISOplot:
 			self.__generate_hist(ax[idx, 1], test, toff=-0.12)
 			
 			ax[idx, 0].title.set_text("AA Standard " + compound)
-			ax[idx, 1].title.set_text("Test " + compound)
+			ax[idx, 1].title.set_text("Sample " + compound)
 			
 		return fig
 
@@ -463,9 +463,9 @@ class Corrections:
 
 			current_sample = self.data.nacme[(self.data.nacme.AA == compound) & (self.data.nacme.Sample != 'AA std')].Sample
 
-			for id1 in current_sample:
+			for idx, id1 in enumerate(current_sample):
 				#danger: will modefy seed data
-				self.data.df.loc[(self.data.df['Identifier 1'] == id1) & (self.data.df.Component == compound), 'd 13C/12C'] = corrected
+				self.data.df.loc[(self.data.df['Identifier 1'] == id1) & (self.data.df.Component == compound), 'd 13C/12C'] = corrected.iloc[idx]
 		return
 
 	"""
