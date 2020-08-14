@@ -425,8 +425,9 @@ class ISOplot:
 
 class Corrections:
 	#load file where standards are stored
-	def __init__(self, data):
+	def __init__(self, data, pval):
 		self.standard = data
+		self.pval = pval
 
 	#get list of all standards in file
 	def get_all_standards(self):
@@ -437,7 +438,7 @@ class Corrections:
 		self.data = ISOplot
 
 	#correct based on all internal QC
-	def correct_all(self, s_name, sw, exclusions=[], p_C=0.5):
+	def correct_all(self, s_name, sw, exclusions=[]):
 		#set standard
 		corr = self.standard[self.standard.Standard == s_name]
 		
@@ -459,6 +460,8 @@ class Corrections:
 				
 			d13C = corr[corr.Compound == compound].d13C.values[0]
 
+			p_C = self.pval[(self.pval.Compound == compound) & (self.pval.Standard == s_name)].p.values[0]
+
 			corrected = (der_sample_mean - der_standard) * p_C + d13C
 
 			current_sample = self.data.nacme[(self.data.nacme.AA == compound) & (self.data.nacme.Sample != 'AA std')].Sample
@@ -474,7 +477,7 @@ class Corrections:
 	2:std after
 	3:mean of before/after
 	"""
-	def correct_individual(self, s_name, sw, exclusions = [], p_C=0.5):
+	def correct_individual(self, s_name, sw, exclusions = []):
 		#set standard
 		corr = self.standard[self.standard.Standard == s_name]
 		
@@ -494,6 +497,7 @@ class Corrections:
 			
 			if len(corr[corr.Compound == row.AA]) > 0:
 				d13C = corr[corr.Compound == row.AA].d13C.values[0]
+				p_C = self.pval[(self.pval.Compound == row.AA) & (self.pval.Standard == s_name)].p.values[0]
 
 				corrected = (samp - der_standard) * p_C + d13C
 

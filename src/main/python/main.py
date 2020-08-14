@@ -198,18 +198,6 @@ class App(QMainWindow):
 
 	@pyqtSlot()
 	def setCorrFile(self):
-		"""
-		self.fp = self.appctxt.get_resource("../resources/standard.txt")
-		fileName = self.openFileNameDialog("Select Corrections File", "Excel Files (*.xlsx);;Excel Files (*.xls)")
-		if fileName:
-			self.ip.corr_file_Path = fileName
-
-			wr = open(self.fp, 'w')
-			wr.write(fileName)
-		else: #no file picked
-			return
-		return
-		"""
 		self.cori = StorageFile("../resources/standard.txt", "Corrections", self)
 		self.cori.load_new_data()
 		return
@@ -468,30 +456,8 @@ class NormalizeWidget(QWidget):
 		#replace
 		self.cori = StorageFile("../resources/standard.txt", "Corrections", self)
 		
-		data = self.cori.get_data()
-		if data is None: return
-		self.corrector = Corrections(data)
-
-		"""
-		#get file here
-		self.fp = self.appctxt.get_resource("../resources/standard.txt")
-		f = open(self.fp, "r+")
-		txt = f.read()
-
-		#run if we don't have a good file
-		if(len(txt) == 0):
-			fileName = self.openFileNameDialog()
-			if fileName:
-				self.file_Path = fileName
-				f.write(fileName) #save off
-			else:
-				return
-		else:
-			self.file_Path = txt
-
-		#load data & repair filepath if we need to
-		self.loadData()
-		"""
+		e = self.loadData()
+		if e is False: return
 
 		self.ip = parent.ip
 
@@ -547,30 +513,34 @@ class NormalizeWidget(QWidget):
 
 	@pyqtSlot()
 	def runCorrections(self):
-		with wait_cursor():
-			data = self.cori.get_data()
-			if data is None: return
-			self.corrector = Corrections(data)
+		#with wait_cursor():
+		e = self.loadData()
+		if e is False: return
 
-			#set isoplot object
-			self.corrector.set_ip(self.ip)
-			
-			standard = self.comboStandard.currentText()
-			exclusions = []
-			
-			if self.single.isChecked():
-				mode = self.comboQC.currentData()
-				self.corrector.correct_individual(standard, mode, exclusions)
+		#set isoplot object
+		self.corrector.set_ip(self.ip)
+		
+		standard = self.comboStandard.currentText()
+		exclusions = []
+		
+		if self.single.isChecked():
+			mode = self.comboQC.currentData()
+			self.corrector.correct_individual(standard, mode, exclusions)
 
-			if not self.single.isChecked():
-				mode = self.comboQC.currentData()
-				self.corrector.correct_all(standard, mode, exclusions)
+		if not self.single.isChecked():
+			mode = self.comboQC.currentData()
+			self.corrector.correct_all(standard, mode, exclusions)
 
+		print("passed")
 
-			#save result
-			self.ip.export()
+		#save result
+		self.ip.export()
+
+		print("done")
 
 		return
+
+		#return
 
 	def handleError(self, err):
 		msg = QMessageBox()
@@ -592,36 +562,22 @@ class NormalizeWidget(QWidget):
 
 		fileName= QFileDialog.getExistingDirectory(self, "Select location to save corrected files", options=options)
 		return fileName
-	"""
-	def loadData(self):
-		#check for/repair bad filepath
-		tries = 3
-		for i in range(tries):
-			try:
-				data = pd.read_excel(self.file_Path)
-			except (FileNotFoundError, IsADirectoryError):
-				# pick file
-				fileName = self.openFileNameDialog()
-				if fileName:
-					self.file_Path = fileName
 
-					wr = open(self.fp, 'w')
-					wr.write(fileName)
-					continue #retry after new file is picked
-				else: #no file picked, end
-					return
-			else:
-				self.corrector = Corrections(data)
+	def loadData(self):
+		data = self.cori.get_data()
+		if data is None: return False
 
 		#basic check for malformed data
 		if not set(['Compound','Standard', 'd13C', 'd15N']).issubset(data.columns):
 			self.handleError("Connections file is malformed. Repair and try again")
-			return
+			return False
 
-		self.corrector_p = StorageFile("../resources/p.txt", "p^-1", self).get_data()
+		pdata = StorageFile("../resources/p.txt", "p^-1", self).get_data()
+		if pdata is None: return False
 
-		return
-	"""
+		self.corrector = Corrections(data, pdata)
+
+		return True
 
 
 class MyTableWidget(QWidget):
