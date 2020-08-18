@@ -84,14 +84,16 @@ class ISOplot:
 
 		w = (tw-100)/dpi
 		#self.OVER = plt.figure(figsize=(w, w*2), dpi=dpi)
-		self.OVER = self.overview(figsize=(w, w*2), dpi=dpi)
+		self.OVER = self.overview(gW=3, figsize=(w, w*2), dpi=dpi)
+
+		self.SLOPE_T = self.all_slopes()
 
 		w = (tw-aa_width)/dpi
 		self.AA_H = self.aa_hist(gW=3, figsize=(w,w*3), dpi=dpi)
 		self.AA_T = self.aa_out()
 
 		w = (tw-std_width)/dpi
-		self.STD_H = self.std_hist(gW=3, figsize=(w, w * 4), dpi=dpi)
+		self.STD_H = self.std_hist(gW=2, figsize=(w * 0.75, w * 6), dpi=dpi)
 		self.STD_T = self.std_out()
 
 		w = (tw-is_width)/dpi
@@ -102,7 +104,8 @@ class ISOplot:
 		fig = plt.figure(figsize=figsize, dpi=dpi)
 		r = fig.canvas.get_renderer()
 
-		compounds = self._all.drop(['Identifier 1', 'Identifier 2'], axis=1).columns
+		compounds = self._all.drop(['Identifier 1', 'Identifier 2'], axis=1).columns.values
+		compounds = [x for x in compounds if "CO2" not in x]
 
 		gH = math.ceil(len(compounds) / gW)
 
@@ -117,8 +120,8 @@ class ISOplot:
 			ax1 = fig.add_subplot(gsx[0, 0])
 			ax2 = fig.add_subplot(gsx[1, 0])
 
-			self.__plotCompoundTimeSeries(self._all[self._all['Identifier 1'] != 'AA std'], compound, 'Green', 'Yellow', ax1)
-			self.__plotCompoundTimeSeries(self._all[self._all['Identifier 1'] == 'AA std'], compound, 'Blue', 'Yellow', ax2)
+			self.__plotCompoundTimeSeries(self._all[self._all['Identifier 1'] != 'AA std'], compound, 'Black', 'Red', ax1)
+			self.__plotCompoundTimeSeries(self._all[self._all['Identifier 1'] == 'AA std'], compound, 'Blue', 'Red', ax2)
 
 			self.__displayTrendLine(self._all[self._all['Identifier 1'] == 'AA std'], compound, 'Blue', ax2)
 
@@ -135,6 +138,17 @@ class ISOplot:
 			fig.add_subplot(gsx[1, 0])
 
 		return fig
+
+	def all_slopes(self):
+		def ctl(compound):
+			slope, r, _ = self.__calcTrendLine(self._all[self._all['Identifier 1'] == 'AA std'], compound)
+			return [compound, slope, r]
+
+		#will need to manage this in future for better code reuse
+		compounds = self._all.drop(['Identifier 1', 'Identifier 2'], axis=1).columns.values
+		compounds = [x for x in compounds if "CO2" not in x]
+		
+		return [ctl(c) for c in compounds]
 
 	def aa_hist(self, gW=4, figsize=(20,50), dpi=20):
 		gH = math.ceil(len(self.aa.index) / gW)
@@ -199,6 +213,11 @@ class ISOplot:
 		all_sd = all_sd.round(3)
 
 		final = self.__find_outl_array(all_sd, all_sd.columns)
+
+		#add in row data to premade array
+		for idx, outl in enumerate(final):
+			outidx = self._all[self._all['Identifier 1'] == outl[1]].index.values
+			final[idx] = [outl[0], outl[1], outidx, outl[2]]
 
 		return final
 
@@ -333,17 +352,25 @@ class ISOplot:
 	def __generate_hist(self, ax, data, toff=-0.15):
 		if len(data) > 0:
 			binsize = self.__binSize(data)
-			ax.hist(data, bins=binsize, color='lightblue')
-			ax.vlines(np.mean(data), *ax.get_ylim())
 
-			ht = ax.transLimits.inverted().transform((1,1))[1]
+			mymax = np.max(np.histogram(data, bins=binsize)[0])
+			ax.vlines(np.mean(data), ymin=ax.get_ylim()[0], ymax=mymax)
+
+			#dead code, replaced by mymax
+			#ht = ax.transLimits.inverted().transform((1,1))[1]
 			boxWidth = self.__outlier(data)[0] - self.__outlier(data)[1]
-			aa_patch = Rectangle((self.__outlier(data)[1],0), width=boxWidth, height=ht, color='lightgreen', alpha=0.5)
+			aa_patch = Rectangle((self.__outlier(data)[1],0), width=boxWidth, height=mymax, color='lightgreen')
 			ax.add_patch(aa_patch)    
 
-			ax.vlines(self.__outlier(data), *ax.get_ylim(), linestyle="dotted")
+			outl = self.__outlier(data)
+			ax.vlines(outl, ymin=0, ymax=mymax, linestyle="dotted")
 
-			infoSummery = "mean: %f, sd: %f" % (np.mean(data), np.std(data))
+			ax.hist(data, bins=binsize, color='lightblue', alpha=1.0)
+
+			ax.text(outl[0], mymax-1, s="+2sd", rotation='vertical', fontsize=12)
+			ax.text(outl[1], mymax-1, s="-2sd", rotation='vertical', fontsize=12)
+
+			infoSummery = "mean: %0.2f, sd: %0.2f" % (np.mean(data), np.std(data))
 			ax.text(0.0, toff, s=infoSummery, transform=ax.transAxes, fontsize=14)
 
 		return
@@ -392,36 +419,35 @@ class ISOplot:
 
 		return
 
-	def __displayTrendLine(self,data, compound, color, ax3):
+	def __displayTrendLine(self, data, compound, color, ax3):
+		_, r2, clf = self.__calcTrendLine(data, compound)
+
+		if clf is None:
+			return
+
+		model_range = np.array(self._all.index).reshape(-1, 1)
+		ax3.plot(model_range, clf.predict(model_range), color=color)
+		ax3.text(x=0.7, y=0.05, transform=ax3.transAxes, s="r^2=%0.3f" % r2)
+
+		return
+
+	def __calcTrendLine(self, data, compound):
 		work = data[compound]
 		upper, lower = self.__outlier(work)
 
 		work = work[(work < upper) & (work > lower)]
 
 		if len(work) < 2:
-			return
+			return None, None, None
 
 		X = np.array(work.index).reshape(-1,1)
-
 		y = np.array(work.values).reshape(-1, 1)
 
-		pf = PolynomialFeatures(degree=2)
-		X_poly = pf.fit_transform(X)
+		clf = LinearRegression().fit(X, y)
 
-		clf = LinearRegression().fit(X_poly, y)
+		r2 = r2_score(y, clf.predict(X))
 
-
-		model_range = self._all.index
-		model_range_transform = pf.transform(np.array(model_range).reshape(-1, 1))
-
-		r2 = r2_score(y, clf.predict(X_poly))
-
-
-		ax3.plot(model_range, clf.predict(model_range_transform), color=color)
-
-		ax3.text(x=0.7, y=0.05, transform=ax3.transAxes, s="r^2=%0.3f" % r2)
-
-		return
+		return clf.coef_[0][0].round(3), r2.round(3), clf
 
 class Corrections:
 	#load file where standards are stored

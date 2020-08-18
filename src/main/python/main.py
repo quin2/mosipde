@@ -4,7 +4,7 @@ matplotlib.use('Qt5Agg')
 
 from fbs_runtime.application_context.PyQt5 import ApplicationContext
 from PyQt5.QtWidgets import QMainWindow, QApplication, QPushButton, QWidget, QAction, QTabWidget, QVBoxLayout, QHBoxLayout, QScrollArea, QFileDialog, QProgressBar, QTableWidget, QTableWidgetItem, QHeaderView, QLabel,  QGraphicsScene, QGraphicsView, QComboBox, QRadioButton, QLineEdit, QFormLayout, QListWidget, QPushButton, QErrorMessage, QMessageBox, QApplication, QAction, QAbstractItemView
-from PyQt5.QtGui import QIcon, QPixmap, QIntValidator, QCursor, QClipboard, QImage
+from PyQt5.QtGui import QIcon, QPixmap, QIntValidator, QCursor, QClipboard, QImage, QPainter, QTransform
 from PyQt5.QtCore import pyqtSlot, QThread, pyqtSignal, QRect, QObject, Qt, QVariant, QMutex
 
 from PyQt5.QtSvg import QSvgWidget, QSvgRenderer, QGraphicsSvgItem
@@ -293,10 +293,8 @@ class StorageFile():
 		fileName, _ = QFileDialog.getOpenFileName(self.parent,"Select " + self.dname + " file", "","Excel Files (*.xlsx);;Excel Files (*.xls)", options=options)
 		return fileName
 
-
 class MyPopup(QWidget):
     def __init__(self):
-    	#init
         QWidget.__init__(self)
         self.layout = QVBoxLayout(self)
         #add text
@@ -314,38 +312,57 @@ class MyPopup(QWidget):
     def stopBar(self):
     	self.progressBar.setRange(0,1)
 
+class PreprocessPopup(QWidget):
+	def __init__(self):
+		QWidget.__init__(self)
+		self.setGeometry(QRect(100, 100, 400, 400)) #x,y,w,h
+		self.layout = QFormLayout(self)
+		self.setWindowTitle("Import Settings")
 
-class ScrollableWindow(QMainWindow):
-	def __init__(self, fig):
-		self.qapp = QApplication([])
+		self.projTitle = QLineEdit()
+		self.layout.addRow(self.tr("&Project Name:"), self.projTitle)
 
-		QMainWindow.__init__(self)
-		self.widget = QWidget()
-		self.setCentralWidget(self.widget)
-		self.widget.setLayout(QVBoxLayout())
-		self.widget.layout().setContentsMargins(0,0,0,0)
-		self.widget.layout().setSpacing(0)
+		self.comboQC = QComboBox()
+		self.comboQC.setFixedSize(325, 50)
+		self.comboQC.addItem("Placeholder?", QVariant(0))
+		self.layout.addRow(self.tr("&AA Standard:"), self.comboQC)
 
-		self.fig = fig
-		self.canvas = FigureCanvasQTAgg(self.fig)
-		self.canvas.draw()
-		self.scroll = QScrollArea(self.widget)
-		self.scroll.setWidget(self.canvas)
+		#make checkbox list here
 
-		self.nav = NavigationToolbar(self.canvas, self.widget)
-		self.widget.layout().addWidget(self.nav)
-		self.widget.layout().addWidget(self.scroll)
+
+
 
 class PlotWebRender(QMainWindow):
 	def __init__(self, fig):
 		self.qapp = QApplication([])
 
+		self.sf = 1.0
+
 		QMainWindow.__init__(self)
 		self.widget = QWidget()
 		self.setCentralWidget(self.widget)
 		self.widget.setLayout(QVBoxLayout())
 		self.widget.layout().setContentsMargins(0,0,0,0)
 		self.widget.layout().setSpacing(0)
+
+		self.ctrlLayout = QHBoxLayout()
+
+		self.zin = QPushButton('Zoom In', self)
+		self.zin.clicked.connect(self.zoomin)
+		self.ctrlLayout.addWidget(self.zin)
+
+		self.zout = QPushButton('Zoom Out', self)
+		self.zout.clicked.connect(self.zoomout)
+		self.ctrlLayout.addWidget(self.zout)
+
+		self.reset = QPushButton('Reset Zoom', self)
+		self.reset.clicked.connect(self.resetz)
+		self.ctrlLayout.addWidget(self.reset)
+
+		ctrl = QWidget();
+		ctrl.setLayout(self.ctrlLayout);
+		ctrl.setFixedWidth(500)
+		self.widget.layout().addWidget(ctrl)
 
 		self.fig = fig
 		buf = io.BytesIO()
@@ -354,15 +371,23 @@ class PlotWebRender(QMainWindow):
 		buf.seek(0)
 		image_data = buf.read()
 
-		self.svgWidget = QSvgWidget()
-		self.svgWidget.renderer().load(image_data)
+		#set paint here
+		render = QSvgRenderer(image_data)
 
-		self.scroll = QScrollArea(self.widget)
-		self.scroll.setWidget(self.svgWidget)
+		img = QPixmap(render.defaultSize())
+		img.fill()
+		paint = QPainter(img)
+		render.render(paint)
+		paint.end()
 
-		self.widget.layout().addWidget(self.scroll)
+		scene = QGraphicsScene()
+		scene.addPixmap(img)
+
+		self.view = QGraphicsView(scene)
+		self.widget.layout().addWidget(self.view)
 
 		buf.close()
+	"""
 	def update(self, fig):
 		self.fig = fig
 		buf = io.BytesIO()
@@ -373,6 +398,31 @@ class PlotWebRender(QMainWindow):
 
 		self.svgWidget.renderer().load(image_data)
 		buf.close()
+	"""
+	@pyqtSlot()
+	def zoomin(self):
+		self.sf += 0.1
+		self.scale()
+		pass
+
+	@pyqtSlot()
+	def zoomout(self):
+		self.sf -= 0.1
+		self.scale()
+		pass
+
+	@pyqtSlot()
+	def resetz(self):
+		self.sf = 1.0
+		self.scale()
+		pass
+
+	def scale(self):
+		transform = QTransform()
+		transform.scale(self.sf, self.sf)
+
+		self.view.setTransform(transform, False)
+
 	def saveImg(self):
 		buf = io.BytesIO()
 		self.fig.savefig(buf, format='png')
@@ -626,7 +676,7 @@ class MyTableWidget(QWidget):
 		return tableWidget
 
 	def make_plots(self, ip):	
-		std_width = 230 #todo: make parem passing betwen isoplot class and this explicit. 
+		std_width = 350 #todo: make parem passing betwen isoplot class and this explicit. 
 		aa_width = 200
 		is_width = 250
 
@@ -638,12 +688,14 @@ class MyTableWidget(QWidget):
 
 		self.ish = PlotWebRender(ip.IS_H)
 
-		#segfaulting past here...
+		self.over_tableWidget = self.buildTable(['Compound', 'Slope', 'R^2'], ip.SLOPE_T, is_width)
+
 		self.aa_tableWidget = self.buildTable(['Compound', 'Row', 'd13C'], ip.AA_T, aa_width)
 
-		self.tableWidget = self.buildTable(['Compound', 'Sample', 'd13C SD'], ip.STD_T, std_width)
+		#fix this
+		self.tableWidget = self.buildTable(['Compound', 'Sample', 'Row', 'd13C SD'], ip.STD_T, std_width)
 
-		self.is_tableWidget = self.buildTable(['Type', 'Compound', 'Row', 'd13C'], ip.IS_T, is_width)
+		self.is_tableWidget = self.buildTable(['Type', 'Compound', 'd13C'], ip.IS_T, is_width)
 
 		self.ip = ip
 
@@ -691,8 +743,9 @@ class MyTableWidget(QWidget):
 		self.tab6.setLayout(self.tab6.layout)
 
 		# Create tab
-		self.tab1.layout = QVBoxLayout(self)
+		self.tab1.layout = QHBoxLayout(self)
 		self.tab1.layout.addWidget(self.overview)
+		self.tab1.layout.addWidget(self.over_tableWidget)
 		#layout
 		self.tab1.setLayout(self.tab1.layout)
 
