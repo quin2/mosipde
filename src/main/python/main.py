@@ -87,7 +87,7 @@ class App(QMainWindow):
 			self.ip = ISOplot(fileName)
 
 			#get folder here
-			self.opf = self.appctxt.get_resource("../resources/outputs.txt")
+			self.opf = self.appctxt.get_resource("outputs.txt")
 
 			#pick folder for outputs (save in memory)
 			f = open(self.opf, "r+")
@@ -209,14 +209,14 @@ class App(QMainWindow):
 
 	@pyqtSlot()
 	def setCorrFile(self):
-		self.cori = StorageFile("../resources/standard.txt", "Corrections", self)
+		self.cori = StorageFile("standard.txt", "Corrections", self)
 		self.cori.load_new_data()
 		return
 
 
 	@pyqtSlot()
 	def setPFile(self):
-		self.pp = StorageFile("../resources/p.txt", "p^-1", self)
+		self.pp = StorageFile("p.txt", "p^-1", self)
 		self.pp.load_new_data()
 		return
 
@@ -575,7 +575,7 @@ class NormalizeWidget(QWidget):
 		self.appctxt = ApplicationContext()
 
 		#replace
-		self.cori = StorageFile("../resources/standard.txt", "Corrections", self)
+		self.cori = StorageFile("standard.txt", "Corrections", self)
 		
 		e = self.loadData()
 		if e is False: return
@@ -629,6 +629,7 @@ class NormalizeWidget(QWidget):
 		standard = self.comboStandard.currentText()
 		self.corrector.correct_individual(standard, mode, [])
 
+		self.ip.chart_all()
 		self.ip.export2()
 
 		return
@@ -682,7 +683,7 @@ class NormalizeWidget(QWidget):
 			self.handleError("Connections file is malformed. Repair and try again")
 			return False
 
-		pdata = StorageFile("../resources/p.txt", "p^-1", self).get_data()
+		pdata = StorageFile("p.txt", "p^-1", self).get_data()
 		if pdata is None: return False
 
 		self.corrector = Corrections(data, pdata)

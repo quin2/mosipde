@@ -38,6 +38,9 @@ class ISOplot:
 		self.qaName = ""
 		self.projName = ""
 
+		self.ext_std = None
+		self.std_method = None
+
 	def getFileName(self):
 		_, fileName = os.path.split(self.filePath)
 		fileName = os.path.splitext(fileName)[0]
@@ -48,6 +51,7 @@ class ISOplot:
 		
 	def load(self):
 		self.df = pd.read_excel(self.filePath)
+		self.df['corrected'] = False
 		self.original_df = copy.deepcopy(self.df)
 
 	def chart_all(self):
@@ -369,14 +373,20 @@ class ISOplot:
 		cgc.insert(0, 'Sequence', self.fileName)
 
 		#fix NACME if we haven't done any de-deriv yet
-		if 'Ext_std' not in self.nacme:
-			self.nacme['Ext_std'] = None
-
-		if 'Std_method' not in self.nacme:
-			self.nacme['Std_method'] = None
+		self.nacme['Ext_std'] = self.ext_std
+		self.nacme['Std_method'] = self.std_method
 
 		sdd = self.nacme.rename(index=str, columns={"Sample": "Sample_ID", "AA": "Compound","Mean": "Mean_d13c_dd", "SD_inj": "SD"})
 		sdd = sdd[['Sample_ID', 'Ext_std', 'Std_method', 'Compound', 'Inj_1', 'Inj_2', 'Inj_3', 'Mean_d13c_dd', 'SD']]
+
+		#remove all cols that wern't corrected!
+		#we are not including standard, so ignore it in our hunt for uncovered values.
+		print(self.df[self.df.corrected==True])
+		notCorrected = self.df[(self.df.corrected == False) & (self.df['Identifier 1'] != self.sName)].Component.unique()
+		print(notCorrected)
+		#issue is that it will drop by every component, need to do it on a per component and per sample basis (or per row basis). 
+		sdd = sdd.drop(sdd[sdd.Compound.isin(notCorrected)].index)
+		#could do it by compound instead of inj...
 
 		sdd_qa = sdd[sdd['Sample_ID'] == self.qaName]#problem is here, we're comparing the wrong things!
 		sdd_samp = sdd[sdd['Sample_ID'] != self.qaName]
@@ -401,7 +411,7 @@ class ISOplot:
 			self.__writeWorkbook(writer=writer, sheet_name='Corrected_GC.wke', df=self.corr_info, indexName=None, startcol=8)
 			self.__writeWorkbook(writer=writer, sheet_name='Reference_measured', df=self.ref_meas, indexName=None)
 			#only write below if de-deriv has been run...
-			if self.nacme.Ext_std.iloc[0] is not None:
+			if self.ext_std is not None:
 				self.__writeWorkbook(writer=writer, sheet_name='QA_de-deriv', df=sdd_qa)
 				self.__writeWorkbook(writer=writer, sheet_name='Samples_de-deriv', df=sdd_samp)
 				self.__writeWorkbook(writer=writer, sheet_name='Final_de-deriv', df=final_dederiv)
@@ -617,6 +627,8 @@ class Corrections:
 			for idx, id1 in enumerate(current_sample):
 				#danger: will modefy seed data
 				self.data.df.loc[(self.data.df['Identifier 1'] == id1) & (self.data.df.Component == compound), 'd 13C/12C'] = corrected.iloc[idx]
+				self.data.df.loc[(self.data.df['Identifier 1'] == id1) & (self.data.df.Component == compound), 'corrected'] = True
+
 		return
 
 	"""
@@ -653,16 +665,14 @@ class Corrections:
 				corrected = (samp - der_standard) * p_C + d13C
 
 				#danger: below will modefy seed data
-				self.data.df.loc[(self.data.df['Identifier 1'] == row.Sample) & (self.data.df.Component == row.AA), 'd 13C/12C'] = corrected
-				#alter NACME
-				self.data.nacme.loc[(self.data.nacme.Sample==row.Sample) & (self.data.nacme.AA == row.AA), 'Ext_std'] = s_name
-				self.data.nacme.loc[(self.data.nacme.Sample==row.Sample) & (self.data.nacme.AA == row.AA), 'Std_method'] = self.methods[sw]
-				#can't run chart_all after this because then nacme data will be destroyed....
-				#we can step around by making our own data structure and loading it later.
-				#this DOES mean that we have to alter in three places: nacme, df, and our new array, which is a downside
+				#should only happen to amino acids....
+				for idx2, val in self.data.df[(self.data.df['Identifier 1'] == row.Sample) & (self.data.df.Component == row.AA)].iterrows():
+					self.data.df.loc[(self.data.df.Component == val.Component) & (self.data.df['Row'] == val['Row']), 'd 13C/12C'] = corrected
+					self.data.df.loc[(self.data.df.Component == val.Component) & (self.data.df['Row'] == val['Row']), 'corrected'] = True
 
-		#maybe generate the chart here...
-		#make an 'all' with the data we just made, minus the triplicate???
+		self.data.ext_std = s_name
+		self.data.std_method = self.methods[sw]
+
 		return
 		
 
