@@ -3,9 +3,9 @@ import matplotlib
 matplotlib.use('Qt5Agg')
 
 from fbs_runtime.application_context.PyQt5 import ApplicationContext
-from PyQt5.QtWidgets import QMainWindow, QApplication, QPushButton, QWidget, QAction, QTabWidget, QVBoxLayout, QHBoxLayout, QScrollArea, QFileDialog, QProgressBar, QTableWidget, QTableWidgetItem, QHeaderView, QLabel,  QGraphicsScene, QGraphicsView, QComboBox, QRadioButton, QLineEdit, QFormLayout, QListWidget, QPushButton, QErrorMessage, QMessageBox, QApplication, QAction, QAbstractItemView
-from PyQt5.QtGui import QIcon, QPixmap, QIntValidator, QCursor, QClipboard, QImage, QPainter, QTransform
-from PyQt5.QtCore import pyqtSlot, QThread, pyqtSignal, QRect, QObject, Qt, QVariant, QMutex
+from PyQt5.QtWidgets import QMainWindow, QApplication, QPushButton, QWidget, QAction, QTabWidget, QVBoxLayout, QHBoxLayout, QScrollArea, QFileDialog, QProgressBar, QTableWidget, QTableWidgetItem, QHeaderView, QLabel,  QGraphicsScene, QGraphicsView, QComboBox, QRadioButton, QLineEdit, QFormLayout, QListWidget, QPushButton, QErrorMessage, QMessageBox, QApplication, QAction, QAbstractItemView, QDialog, QCheckBox
+from PyQt5.QtGui import QIcon, QPixmap, QIntValidator, QCursor, QClipboard, QImage, QPainter, QTransform, QFont, QKeySequence
+from PyQt5.QtCore import pyqtSlot, QThread, pyqtSignal, QRect, QObject, Qt, QVariant, QMutex, QEvent
 
 from PyQt5.QtSvg import QSvgWidget, QSvgRenderer, QGraphicsSvgItem
 
@@ -59,7 +59,7 @@ class App(QMainWindow):
 
 		#reloadAction is also super unstable right now
 		reloadAction = self.makeMenuItem("&Reload Plots", "CTRL+R", "Reload plots with new data", self.reload)
-		copyAction = self.makeMenuItem("&Copy Plot", "CTRL+C", "Copy current plot to clipboard", self.clipPlot)
+		copyAction = self.makeMenuItem("&Copy Plot", "", "Copy current plot to clipboard", self.clipPlot)
 
 		self.statusBar()
 
@@ -113,6 +113,17 @@ class App(QMainWindow):
 					wr.write(fileName) #overwrite last
 				else:
 					return
+
+			#-------------------------------------------
+			#preload initial dataframe to get a look
+			self.ip.preload()
+			#show setup diag
+			self.setup = PreprocessPopup(self.ip)
+			self.setup.exec()
+			#wait for complete: will need to check for 'exit case' if no data is returned.
+			if len(self.ip.include) == 0:
+				sys.exit()
+			#continue
 
 			#start thread
 			self.t = TTT(self.ip)
@@ -294,42 +305,159 @@ class StorageFile():
 		return fileName
 
 class MyPopup(QWidget):
-    def __init__(self):
-        QWidget.__init__(self)
-        self.layout = QVBoxLayout(self)
-        #add text
-        self.infoText = QLabel("Loading Data & Building Charts")
-        self.layout.addWidget(self.infoText)
-
-        #add progress bar
-        self.progressBar = QProgressBar(self)
-        self.progressBar.setRange(0,1)
-        self.layout.addWidget(self.progressBar)
-        
-    def startBar(self):
-    	self.progressBar.setRange(0,0)
-
-    def stopBar(self):
-    	self.progressBar.setRange(0,1)
-
-class PreprocessPopup(QWidget):
 	def __init__(self):
 		QWidget.__init__(self)
-		self.setGeometry(QRect(100, 100, 400, 400)) #x,y,w,h
+		self.layout = QVBoxLayout(self)
+		#add text
+		self.infoText = QLabel("Loading Data & Building Charts")
+		self.layout.addWidget(self.infoText)
+
+		#add progress bar
+		self.progressBar = QProgressBar(self)
+		self.progressBar.setRange(0,1)
+		self.layout.addWidget(self.progressBar)
+		
+	def startBar(self):
+		self.progressBar.setRange(0,0)
+
+	def stopBar(self):
+		self.progressBar.setRange(0,1)
+
+class SmartListWidget(QWidget):
+	def __init__(self, df):
+		super(QWidget, self).__init__()
+
+		self.includeRows = []
+		self.ISRows = ['nLeu', 'Nonadecane', 'Caffeine'] #default values, make these checked too
+
+		self.layout = QVBoxLayout()
+		self.tableWidget = QTableWidget()
+
+		self.targetData = df['Component'].unique()
+
+		self.tableWidget.setRowCount(len(self.targetData))
+		self.tableWidget.setColumnCount(3)
+
+		header = self.tableWidget.horizontalHeader() 
+		header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
+		header.setSectionResizeMode(1, QHeaderView.Stretch)
+
+		self.tableWidget.setHorizontalHeaderLabels(['Include', 'IS?', 'Analyte'])
+
+		self.tableWidget.verticalHeader().setVisible(False)
+
+		self.tableWidget.setEditTriggers(QAbstractItemView.NoEditTriggers)
+
+		self.tableWidget.itemChanged.connect(self.itemChanged)
+
+		for idx, item in enumerate(self.targetData):
+			chkBoxItem = QTableWidgetItem()
+			chkBoxItem.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
+			chkBoxItem.setCheckState(Qt.Unchecked)
+
+			isBoxItem = QTableWidgetItem()
+			isBoxItem.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
+			if str(item) in self.ISRows:
+				isBoxItem.setCheckState(Qt.Checked)
+			else:
+				isBoxItem.setCheckState(Qt.Unchecked)
+
+			self.tableWidget.setItem(idx,0, chkBoxItem)
+			self.tableWidget.setItem(idx,1, isBoxItem)
+			self.tableWidget.setItem(idx,2, QTableWidgetItem(str(item)))
+
+		self.tableWidget.setFixedHeight(500) #OK for now. will need to eventually resize. 
+
+		self.layout.addWidget(self.tableWidget)
+		self.setLayout(self.layout)
+
+	def itemChanged(self, item):
+		lookup = self.targetData[item.row()]
+
+		if item.column() == 1 or item.column() == 0:
+			other = self.tableWidget.item(item.row(), 1-item.column())
+			if other is not None:
+				if other.checkState() == 2 and item.checkState() == 2:
+					other.setCheckState(Qt.Unchecked)
+
+		if item.column() == 0:
+			if item.checkState() == 0 and lookup in self.includeRows:
+				self.includeRows.remove(lookup)
+			if item.checkState() == 2:
+				self.includeRows.append(lookup)
+		if item.column() == 1:
+			if item.checkState() == 0 and lookup in self.ISRows:
+				self.ISRows.remove(lookup)
+			if item.checkState() == 2 and lookup not in self.ISRows:
+				self.ISRows.append(lookup)
+
+
+	def getChecked(self):
+		return self.includeRows, self.ISRows
+
+#need some way to shuffle data in...
+class PreprocessPopup(QDialog):
+	def __init__(self, ip):
+		QDialog.__init__(self)
+		self.ip = ip
+		#self.setWindowModality(Qt.WindowModal)
+
+		self.setGeometry(QRect(100, 100, 400, 600)) #x,y,w,h
 		self.layout = QFormLayout(self)
+		self.setLayout(self.layout)
 		self.setWindowTitle("Import Settings")
 
-		self.projTitle = QLineEdit()
-		self.layout.addRow(self.tr("&Project Name:"), self.projTitle)
+		self.projName = QLineEdit()
+		self.projName.setFixedWidth(250)
+		tempTitle = self.ip.getFileName()
+		self.projName.setText(tempTitle)
+		self.layout.addRow(self.tr("&Project Name:"), self.projName)
 
-		self.comboQC = QComboBox()
-		self.comboQC.setFixedSize(325, 50)
-		self.comboQC.addItem("Placeholder?", QVariant(0))
-		self.layout.addRow(self.tr("&AA Standard:"), self.comboQC)
+		self.projTitle = QLineEdit()
+		self.projTitle.setFixedWidth(250)
+		tempTitle = self.ip.getFileName()
+		self.projTitle.setText(tempTitle)
+		self.layout.addRow(self.tr("&Sequence Name:"), self.projTitle)
+
+		self.SSel = QComboBox()
+		self.SSel.setFixedSize(325, 50)
+		for value in self.ip.df['Identifier 1'].unique():
+			self.SSel.addItem(value)
+		self.layout.addRow(self.tr("&AA Standard:"), self.SSel)
+
+		self.QASel = QComboBox()
+		self.QASel.setFixedSize(325, 50)
+		for value in self.ip.df['Identifier 1'].unique():
+			self.QASel.addItem(value)
+		self.layout.addRow(self.tr("&QA Standard:"), self.QASel)
 
 		#make checkbox list here
+		self.selBox = SmartListWidget(self.ip.df)
+		self.layout.addRow(self.tr("&Include Analytes:"), self.selBox)
 
+		self.go= QPushButton('Load Data', self)
+		self.go.clicked.connect(self.contData)
+		self.layout.addWidget(self.go)
 
+	@pyqtSlot()
+	def contData(self):
+		pname = self.projName.text()
+		self.ip.projName = pname
+
+		title = self.projTitle.text()
+		self.ip.fileName = title
+
+		opt = self.SSel.currentText()
+		self.ip.sName = opt
+
+		qaopt = self.QASel.currentText()
+		self.ip.qaName = qaopt
+
+		incl, is_c = self.selBox.getChecked()
+		self.ip.include = incl
+		self.ip.is_c = is_c
+	
+		self.close()
 
 
 class PlotWebRender(QMainWindow):
@@ -437,63 +565,6 @@ class PlotWebRender(QMainWindow):
 		buf.close()
 		return
 
-class SmartListWidget(QWidget):
-	def __init__(self, parent):
-		super(QWidget, self).__init__(parent)
-
-		self.excludeRows = []
-
-		self.ip = parent.ip
-
-		self.layout = QVBoxLayout()
-
-		self.tableWidget = QTableWidget()
-
-		self.targetData = self.ip._all[self.ip._all['Identifier 1'] == 'AA std']
-
-		self.tableWidget.setRowCount(len(self.targetData))
-		self.tableWidget.setColumnCount(4)
-
-		header = self.tableWidget.horizontalHeader() 
-		header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
-		header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
-		header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
-		header.setSectionResizeMode(3, QHeaderView.Stretch)
-
-		self.tableWidget.setHorizontalHeaderLabels(['Exclude', 'Row', 'ID', 'd13c'])
-
-		self.tableWidget.verticalHeader().setVisible(False)
-
-		self.tableWidget.itemChanged.connect(self.itemChanged)
-
-		idx = 0
-		for i, item in self.targetData.iterrows():
-			chkBoxItem = QTableWidgetItem()
-			chkBoxItem.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
-			chkBoxItem.setCheckState(Qt.Unchecked)
-
-			if len(item) != 0:
-				self.tableWidget.setItem(idx,0, chkBoxItem)
-				self.tableWidget.setItem(idx,1, QTableWidgetItem(str(i)))
-				self.tableWidget.setItem(idx,2, QTableWidgetItem(item['Identifier 1']))
-				self.tableWidget.setItem(idx,3, QTableWidgetItem(str(item['Ala'])))
-				idx = idx + 1
-
-		self.tableWidget.setFixedWidth(300)
-
-		self.layout.addWidget(self.tableWidget)
-		self.setLayout(self.layout)
-
-	def itemChanged(self, item):
-		lookup = self.targetData.iloc[item.row()].name
-		if item.column() == 0 and item.checkState() == 0 and lookup in self.excludeRows:
-			self.excludeRows.remove(lookup)
-
-		if item.column() == 0 and item.checkState() == 2:
-			self.excludeRows.append(lookup)
-
-
-
 class NormalizeWidget(QWidget):
 	def __init__(self, parent):
 		super(QWidget, self).__init__(parent)
@@ -510,21 +581,6 @@ class NormalizeWidget(QWidget):
 		if e is False: return
 
 		self.ip = parent.ip
-
-		self.many = QRadioButton("Sample Mean")
-		self.many.setChecked(True)
-
-		self.single= QRadioButton("Individual Injection")
-		self.single.setChecked(False)
-		self.single.toggled.connect(self.switchMode)
-
-		whatSample = QHBoxLayout();
-		whatSample.addWidget(self.many);
-		whatSample.addWidget(self.single);
-
-		container = QWidget();
-		container.setLayout(whatSample);
-		self.layout.addRow(self.tr("&Target:"), container)
 
 		self.comboStandard = QComboBox()
 		self.comboStandard.setFixedSize(325, 50)
@@ -567,6 +623,16 @@ class NormalizeWidget(QWidget):
 		e = self.loadData()
 		if e is False: return
 
+		self.corrector.set_ip(self.ip)
+
+		mode = self.comboQC.currentData()
+		standard = self.comboStandard.currentText()
+		self.corrector.correct_individual(standard, mode, [])
+
+		self.ip.export2()
+
+		return
+		"""
 		#set isoplot object
 		self.corrector.set_ip(self.ip)
 		
@@ -581,16 +647,10 @@ class NormalizeWidget(QWidget):
 			mode = self.comboQC.currentData()
 			self.corrector.correct_all(standard, mode, exclusions)
 
-		print("passed")
-
-		#save result
 		self.ip.export()
 
-		print("done")
-
 		return
-
-		#return
+		"""
 
 	def handleError(self, err):
 		msg = QMessageBox()
@@ -629,6 +689,130 @@ class NormalizeWidget(QWidget):
 
 		return True
 
+class CorrectWidget(QWidget):
+	def __init__(self, parent):
+		super(QWidget, self).__init__(parent)
+		self.mainLayout = QVBoxLayout()
+
+		self.ip = parent.ip
+
+		self.formData = []
+		for idx, analyte in enumerate(self.ip.include):
+			form = QFormLayout()
+
+			title = QLabel()
+			#
+			myFont = QFont()
+			myFont.setBold(True)
+			title.setFont(myFont)
+			#
+			title.setText(analyte)
+			form.addRow(title)
+			
+			check = QCheckBox()
+			check.stateChanged.connect(self.enableIS)
+			form.addRow(self.tr("&IS Correction:"), check)
+
+			comboQC = QComboBox()
+			comboQC.setFixedSize(325, 50)
+			for compound in self.ip.is_c:
+				comboQC.addItem(compound)
+			comboQC.setEnabled(False)
+			form.addRow(self.tr("&IS:"), comboQC)
+
+			runslope = QCheckBox()
+			form.addRow(self.tr("&Slope Correction:"), runslope)
+
+			self.formData.append({'analyte': analyte, 'check': check, 'qc': comboQC, 'slope': runslope})
+
+			wrapper = QWidget();
+			wrapper.setLayout(form);
+			self.mainLayout.addWidget(wrapper)
+
+		self.scrollwrap = QWidget()
+		self.scrollwrap.setLayout(self.mainLayout)
+
+		self.scroll = QScrollArea()
+		self.scroll.setWidgetResizable(True)
+		self.scroll.setWidget(self.scrollwrap)
+
+		self.finalWrap = QVBoxLayout()
+		self.finalWrap.addWidget(self.scroll)
+
+		self.go= QPushButton('Run', self)
+		self.go.clicked.connect(self.runAll)
+		self.go.setFixedWidth(100)
+		self.finalWrap.addWidget(self.go)
+
+		self.setLayout(self.finalWrap)
+
+	@pyqtSlot()
+	def enableIS(self):
+		for item in self.formData:
+			state = item['check'].checkState()
+			if state == 2:
+				item['qc'].setEnabled(True)
+			if state == 0:
+				item['qc'].setEnabled(False)
+
+	@pyqtSlot()
+	def runAll(self):
+		def digest(x):
+			out = {
+				'compound': x['analyte'],
+				'is': x['check'].checkState() == 2, 
+				'is_comp': x['qc'].currentText(),
+				'ro': x['slope'].checkState() == 2,
+				}
+			return out
+
+		data = [digest(x) for x in self.formData]
+		self.ip.aa_correct(data)
+		return 
+
+class BuildTable(QTableWidget):
+	def __init__(self, cols, rows, width):
+		super(QTableWidget, self).__init__()
+
+		self.setRowCount(len(rows))
+		self.setColumnCount(len(cols))
+
+		header = self.horizontalHeader()       
+		header.setSectionResizeMode(0, QHeaderView.Stretch)
+		for i in range(1, len(cols)):
+			header.setSectionResizeMode(i, QHeaderView.ResizeToContents)
+
+		self.setHorizontalHeaderLabels(cols)
+
+		for i, row in enumerate(rows):
+			for j, item in enumerate(row):
+				self.setItem(i,j, QTableWidgetItem(str(item)))
+
+		self.setFixedWidth(width)
+
+		self.verticalHeader().setVisible(False)
+		self.setEditTriggers(QAbstractItemView.NoEditTriggers)
+
+		self.clip = QApplication.clipboard()
+
+	def keyPressEvent(self, e):
+		if (e.modifiers() & Qt.ControlModifier):
+			selected = self.selectedRanges()
+
+			if e.key() == Qt.Key_C: #copy
+				s = '\t'+"\t".join([str(self.horizontalHeaderItem(i).text()) for i in range(selected[0].leftColumn(), selected[0].rightColumn()+1)])
+				s = s + '\n'
+
+				for r in range(selected[0].topRow(), selected[0].bottomRow()+1):
+					#s += self.verticalHeaderItem(r).text() + '\t'
+					for c in range(selected[0].leftColumn(), selected[0].rightColumn()+1):
+						try:
+							s += str(self.item(r,c).text()) + "\t"
+						except AttributeError:
+							s += "\t"
+					s = s[:-1] + "\n" #eliminate last '\t'
+				self.clip.setText(s)      
+
 
 class MyTableWidget(QWidget):
 
@@ -644,6 +828,7 @@ class MyTableWidget(QWidget):
 		self.tab4 = QWidget()
 		self.tab5 = QWidget()
 		self.tab6 = QWidget()
+		self.tab7 = QWidget()
 		self.tabs.resize(300,200)
 
 		# Add tabs
@@ -651,29 +836,8 @@ class MyTableWidget(QWidget):
 		self.tabs.addTab(self.tab3, "Standard/Sample IS")
 		self.tabs.addTab(self.tab4, "AA Standard")
 		self.tabs.addTab(self.tab5, "Sample SD")
+		self.tabs.addTab(self.tab7, "Corrections")
 		self.tabs.addTab(self.tab6, "De-derivatization")
-
-	def buildTable(self, cols, rows, width):
-		tableWidget = QTableWidget()
-
-		tableWidget.setRowCount(len(rows))
-		tableWidget.setColumnCount(len(cols))
-
-		header = tableWidget.horizontalHeader()       
-		header.setSectionResizeMode(0, QHeaderView.Stretch)
-		for i in range(1, len(cols)):
-			header.setSectionResizeMode(i, QHeaderView.ResizeToContents)
-
-		tableWidget.setHorizontalHeaderLabels(cols)
-
-		for i, row in enumerate(rows):
-			for j, item in enumerate(row):
-				tableWidget.setItem(i,j, QTableWidgetItem(str(item)))
-
-		tableWidget.setFixedWidth(width)
-
-		tableWidget.setEditTriggers(QAbstractItemView.NoEditTriggers)
-		return tableWidget
 
 	def make_plots(self, ip):	
 		std_width = 350 #todo: make parem passing betwen isoplot class and this explicit. 
@@ -688,14 +852,14 @@ class MyTableWidget(QWidget):
 
 		self.ish = PlotWebRender(ip.IS_H)
 
-		self.over_tableWidget = self.buildTable(['Compound', 'Slope', 'R^2'], ip.SLOPE_T, is_width)
+		self.over_tableWidget = BuildTable(['Compound', 'Slope', 'R^2'], ip.SLOPE_T, is_width)
 
-		self.aa_tableWidget = self.buildTable(['Compound', 'Row', 'd13C'], ip.AA_T, aa_width)
+		self.aa_tableWidget = BuildTable(['Compound', 'Row', 'd13C'], ip.AA_T, aa_width)
 
 		#fix this
-		self.tableWidget = self.buildTable(['Compound', 'Sample', 'Row', 'd13C SD'], ip.STD_T, std_width)
+		self.tableWidget = BuildTable(['Compound', 'Sample', 'Row', 'd13C SD'], ip.STD_T, std_width)
 
-		self.is_tableWidget = self.buildTable(['Type', 'Compound', 'd13C'], ip.IS_T, is_width)
+		self.is_tableWidget = BuildTable(['Type', 'Compound', 'Row', 'd13C'], ip.IS_T, is_width)
 
 		self.ip = ip
 
@@ -735,12 +899,15 @@ class MyTableWidget(QWidget):
 		return
 
 	def render(self):
-		#turning off until we can solve thread crash
-		#not causing bad access though...
-		#creatte normalizer
+		#de-deriv
 		self.tab6.layout = QHBoxLayout(self)
 		self.tab6.layout.addWidget(NormalizeWidget(self))
 		self.tab6.setLayout(self.tab6.layout)
+
+		#corrections 2
+		self.tab7.layout = QVBoxLayout(self)
+		self.tab7.layout.addWidget(CorrectWidget(self))
+		self.tab7.setLayout(self.tab7.layout)
 
 		# Create tab
 		self.tab1.layout = QHBoxLayout(self)
