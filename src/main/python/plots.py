@@ -367,6 +367,10 @@ class ISOplot:
 
 	def export2(self):
 		#self.chart_all() #make this implicit before we save....
+		def substance_mean(self, x):
+			means = x[self.include].mean()
+			#means['Identifier 1'] = x['Identifier 1'].iloc[0]
+			return pd.concat([pd.Series({"Identifier 1": x['Identifier 1'].iloc[0]}), means])
 
 		cgc = self.df.rename(index=str, columns={"Identifier 2": "Inj", "Component": "Compound", "d 13C/12C": "d13C"})
 		cgc = cgc[["Row", "Identifier 1", "Inj", "Compound", "d13C", "Notes"]]
@@ -381,9 +385,7 @@ class ISOplot:
 
 		#remove all cols that wern't corrected!
 		#we are not including standard, so ignore it in our hunt for uncovered values.
-		print(self.df[self.df.corrected==True])
 		notCorrected = self.df[(self.df.corrected == False) & (self.df['Identifier 1'] != self.sName)].Component.unique()
-		print(notCorrected)
 		#issue is that it will drop by every component, need to do it on a per component and per sample basis (or per row basis). 
 		sdd = sdd.drop(sdd[sdd.Compound.isin(notCorrected)].index)
 		#could do it by compound instead of inj...
@@ -396,9 +398,11 @@ class ISOplot:
 
 		#format final_dederiv tab
 		injs = self._all['Identifier 1'].unique()
-		final_dederiv = pd.DataFrame([self._all[self._all['Identifier 1'] == inj].iloc[0] for inj in injs])    
+		#final_dederiv = pd.DataFrame([self._all[self._all['Identifier 1'] == inj].iloc[0] for inj in injs]) 
+		final_dederiv = pd.DataFrame([substance_mean(self, self._all[self._all['Identifier 1'] == inj]) for inj in injs]) 
+		final_dederiv = final_dederiv.drop(final_dederiv[final_dederiv['Identifier 1'] == self.sName].index)   
 		final_dederiv = final_dederiv.rename(columns={"Identifier 1": "Sample_ID"})
-		final_dederiv = final_dederiv.drop(['Identifier 2'], axis=1)
+		#final_dederiv = final_dederiv.drop(['Identifier 2'], axis=1)
 		final_dederiv.insert(0, 'Project', self.projName)
 		final_dederiv.insert(1, 'Sequence', self.fileName)
 
@@ -647,7 +651,7 @@ class Corrections:
 		
 		allCorrected = []
 		for idx, row in self.data.nacme.iterrows(): #could reduce this to map...
-			samp = np.mean([row.Inj_1, row.Inj_2, row.Inj_3])
+			samp = [row.Inj_1, row.Inj_2, row.Inj_3]
 			
 			before = allQC[allQC.index < row.Row].iloc[0][row.AA]
 			after = allQC[allQC.index > row.Row].iloc[0][row.AA]
@@ -666,9 +670,12 @@ class Corrections:
 
 				#danger: below will modefy seed data
 				#should only happen to amino acids....
-				for idx2, val in self.data.df[(self.data.df['Identifier 1'] == row.Sample) & (self.data.df.Component == row.AA)].iterrows():
-					self.data.df.loc[(self.data.df.Component == val.Component) & (self.data.df['Row'] == val['Row']), 'd 13C/12C'] = corrected
-					self.data.df.loc[(self.data.df.Component == val.Component) & (self.data.df['Row'] == val['Row']), 'corrected'] = True
+				self.data.df.loc[(self.data.df.Component == row.AA) & (self.data.df['Identifier 1'] == row.Sample), 'd 13C/12C'] = corrected
+				self.data.df.loc[(self.data.df.Component == row.AA) & (self.data.df['Identifier 1'] == row.Sample), 'corrected'] = ([True] * len(corrected)) 
+				#for idx2, val in self.data.df[(self.data.df['Identifier 1'] == row.Sample) & (self.data.df.Component == row.AA)].iterrows():
+				#for idx2, val in enumerate(corrected):
+				#	select.iloc[idx2] = val
+				#	#
 
 		self.data.ext_std = s_name
 		self.data.std_method = self.methods[sw]
