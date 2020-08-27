@@ -3,13 +3,13 @@
 block_cipher = None
 
 
-a = Analysis(['/Users/quinnvinlove/Documents/sugarsBio/src/main/python/main.py'],
-             pathex=['/Users/quinnvinlove/Documents/sugarsBio/target/PyInstaller'],
+a = Analysis(['C:\\users\\quinn vinlove\\documents\\sugarsbio\\src\\main\\python\\main.py'],
+             pathex=['C:\\users\\quinn vinlove\\documents\\sugarsbio\\target\\PyInstaller'],
              binaries=[],
              datas=[],
              hiddenimports=[],
-             hookspath=['/Library/Frameworks/Python.framework/Versions/3.6/lib/python3.6/site-packages/fbs/freeze/hooks'],
-             runtime_hooks=['/Users/quinnvinlove/Documents/sugarsBio/target/PyInstaller/fbs_pyinstaller_hook.py'],
+             hookspath=['C:\\Users\\Quinn Vinlove\\AppData\\Local\\Programs\\Python\\Python36\\lib\\site-packages\\fbs\\freeze\\hooks'],
+             runtime_hooks=['C:\\users\\quinn vinlove\\documents\\sugarsbio\\target\\PyInstaller\\fbs_pyinstaller_hook.py'],
              excludes=[],
              win_no_prefer_redirects=False,
              win_private_assemblies=False,
@@ -26,7 +26,7 @@ exe = EXE(pyz,
           bootloader_ignore_signals=False,
           strip=False,
           upx=False,
-          console=False , icon='/Users/quinnvinlove/Documents/sugarsBio/target/Icon.icns')
+          console=False , icon='C:\\users\\quinn vinlove\\documents\\sugarsbio\\src\\main\\icons\\Icon.ico')
 coll = COLLECT(exe,
                a.binaries,
                a.zipfiles,
@@ -34,7 +34,3 @@ coll = COLLECT(exe,
                strip=False,
                upx=False,
                name='ISOviewer')
-app = BUNDLE(coll,
-             name='ISOviewer.app',
-             icon='/Users/quinnvinlove/Documents/sugarsBio/target/Icon.icns',
-             bundle_identifier=None)
