@@ -234,7 +234,7 @@ class ISOplot:
 			
 			self.__generate_hist(ax[j, i], all_sd[col].dropna(), toff=-0.16)
 			
-			ax[j, i].set_title(col, fontdict={'fontsize': 16, 'fontweight': 'bold'})
+			ax[j, i].set_title(col, fontdict={'fontsize': 14, 'fontweight': 'bold'})
 			
 		return fig
 
