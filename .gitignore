@@ -1,2 +1,22 @@
 scratch.txt
 qc_notes.txt
+start_outtakes.ipynb
+start.ipynb
+/api/*
+/__pycache__/*
+/.ipynb_checkpoints/*
+/excel/*
+/out/*
+
+#macOS stuff---------------
+# Folder view configuration files
+.DS_Store
+Desktop.ini
+
+# Thumbnail cache files
+._*
+Thumbs.db
+
+# Files that might appear on external disks
+.Spotlight-V100
+.Trashes
