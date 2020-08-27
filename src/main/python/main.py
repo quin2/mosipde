@@ -1,4 +1,4 @@
-import sys
+import sys, os
 import matplotlib
 matplotlib.use('Qt5Agg')
 
@@ -10,18 +10,11 @@ from PyQt5.QtCore import pyqtSlot, QThread, pyqtSignal, QRect, QObject, Qt, QVar
 from PyQt5.QtSvg import QSvgWidget, QSvgRenderer, QGraphicsSvgItem
 
 from matplotlib.figure import Figure
-
 import matplotlib.pyplot as plt
 
 import pandas as pd
 
 from plots import ISOplot, Corrections
-
-from pdb import set_trace as bp
-
-import threading
-
-import os,subprocess,time,traceback, time, io
 
 from contextlib import contextmanager
 
@@ -57,8 +50,6 @@ class App(QMainWindow):
 		corrsetAction = self.makeMenuItem("&Set Corrections", "", "Set Corrections File", self.setCorrFile)
 		psetAction = self.makeMenuItem("&Set p^-1", "", "&Set p^-1 File", self.setPFile)
 
-		#reloadAction is also super unstable right now
-		reloadAction = self.makeMenuItem("&Reload Plots", "CTRL+R", "Reload plots with new data", self.reload)
 		copyAction = self.makeMenuItem("&Copy Plot", "", "Copy current plot to clipboard", self.clipPlot)
 
 		self.statusBar()
@@ -72,7 +63,6 @@ class App(QMainWindow):
 		fileMenu.addAction(psetAction)
 
 		plotsMenu = mainMenu.addMenu('&Plots')
-		plotsMenu.addAction(reloadAction)
 		plotsMenu.addAction(copyAction)
 
 		screen = app.screens()[0]
@@ -104,7 +94,6 @@ class App(QMainWindow):
 			else:
 				self.ip.out_folder_path = txt
 
-			#TODO:if that folder isn't around anymore, pick a new one
 			if not os.path.isdir(self.ip.out_folder_path):
 				fileName = self.saveFolderDialog()
 				if fileName:
@@ -213,19 +202,10 @@ class App(QMainWindow):
 		self.cori.load_new_data()
 		return
 
-
 	@pyqtSlot()
 	def setPFile(self):
 		self.pp = StorageFile("p.txt", "p^-1", self)
 		self.pp.load_new_data()
-		return
-
-	@pyqtSlot()
-	def reload(self):
-		with wait_cursor():
-			self.ip.generate_all(600, self.dpi/4)
-			self.table_widget.reload()
-			self.ip.export()
 		return
 
 	@pyqtSlot()
@@ -515,18 +495,7 @@ class PlotWebRender(QMainWindow):
 		self.widget.layout().addWidget(self.view)
 
 		buf.close()
-	"""
-	def update(self, fig):
-		self.fig = fig
-		buf = io.BytesIO()
 
-		fig.savefig(buf, format='svg')
-		buf.seek(0)
-		image_data = buf.read()
-
-		self.svgWidget.renderer().load(image_data)
-		buf.close()
-	"""
 	@pyqtSlot()
 	def zoomin(self):
 		self.sf += 0.1
@@ -606,10 +575,6 @@ class NormalizeWidget(QWidget):
 
 		self.mainLayout.addWidget(self.formContain)
 
-		#knit table
-		#self.QChart = PlotWebRender(self.corrector.chart)
-		#self.mainLayout.addWidget(self.QCchart)
-
 		self.setLayout(self.mainLayout)
 
 	#nothing wired up right now 
@@ -633,25 +598,6 @@ class NormalizeWidget(QWidget):
 		self.ip.export2()
 
 		return
-		"""
-		#set isoplot object
-		self.corrector.set_ip(self.ip)
-		
-		standard = self.comboStandard.currentText()
-		exclusions = []
-		
-		if self.single.isChecked():
-			mode = self.comboQC.currentData()
-			self.corrector.correct_individual(standard, mode, exclusions)
-
-		if not self.single.isChecked():
-			mode = self.comboQC.currentData()
-			self.corrector.correct_all(standard, mode, exclusions)
-
-		self.ip.export()
-
-		return
-		"""
 
 	def handleError(self, err):
 		msg = QMessageBox()
@@ -869,34 +815,6 @@ class MyTableWidget(QWidget):
 		first = cw.layout.itemAt(0).widget()
 		if isinstance(first, PlotWebRender):
 			first.saveImg()
-		return
-
-	#if we change any of the views, we need to change this also. 
-	def reload(self):
-		def updatePlot(tab, plot):
-			layout = tab.layout
-			stuff = layout.itemAt(0).widget()
-			stuff.update(plot)
-		def updateTableWidget(tab, data):
-			layout = tab.layout
-			currentTable = layout.itemAt(1).widget()
-			currentTable.blockSignals(True)
-			for i, row in enumerate(data):
-				for j, item in enumerate(row):
-					currentTable.setItem(i,j, QTableWidgetItem(str(item)))
-			currentTable.blockSignals(False)	
-
-		#knit plots
-		updatePlot(self.tab1, self.ip.OVER)
-		updatePlot(self.tab3, self.ip.IS_H)
-		updatePlot(self.tab4, self.ip.AA_H)
-		updatePlot(self.tab5, self.ip.STD_H)
-
-		#knit tables
-		updateTableWidget(self.tab3, self.ip.IS_T)
-		updateTableWidget(self.tab4, self.ip.STD_T)
-		updateTableWidget(self.tab5, self.ip.AA_T)
-
 		return
 
 	def render(self):

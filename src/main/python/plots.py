@@ -9,11 +9,7 @@ import matplotlib.ticker as ticker
 from matplotlib.patches import Rectangle
 from matplotlib import gridspec
 
-import math
-import glob
-import os
-import gc
-import copy
+import math, blob, os, gc, copy
 
 from datetime import datetime
 
@@ -40,6 +36,7 @@ class ISOplot:
 
 		self.ext_std = None
 		self.std_method = None
+		self.corr_info = None
 
 	def getFileName(self):
 		_, fileName = os.path.split(self.filePath)
@@ -123,7 +120,6 @@ class ISOplot:
 		is_width = 250
 
 		w = (tw-100)/dpi
-		#self.OVER = plt.figure(figsize=(w, w*2), dpi=dpi)
 		ht = len(self.include) + len(self.is_c)
 		#each plot should be like 5x5, factor was like 2 when there were like 10, 
 		self.OVER = self.overview(gW=3, figsize=(w, w*(0.3 * (ht/3))), dpi=dpi)
@@ -300,19 +296,6 @@ class ISOplot:
 		return standard + test
 
 	"""
-	def changeCell(self, row, component, new):
-		selector = (self.df['Row'] == row) & (self.df.Component == component)
-		old = self.original_df[selector]['d 13C/12C'].values[0]
-		comment = "Changed from %.3f to %.3f" % (old, new)
-		#write comment
-		self.df.loc[selector, 'Notes'] = comment
-		#write value
-		self.df.loc[selector, 'd 13C/12C'] = new
-
-		return
-	"""
-
-	"""
 	options is an array of dicts, each dict has the following format:
 	{"compound": name_of_analyte, "is": bool, "is_comp": name_of_is_compound, "ro": bool}
 	"""
@@ -347,24 +330,6 @@ class ISOplot:
 		self.export2()
 		return
 
-	def export(self):
-		self.chart_all()
-
-		fn = self.getFileName()
-		path = os.path.join(self.out_folder_path, fn + '.xlsx')
-
-		with pd.ExcelWriter(path, engine='xlsxwriter') as writer:
-			#self.df.to_excel(writer, sheet_name='GC.wke', header=False, index=False)
-			self.__writeWorkbook(writer=writer, sheet_name='GC.wke', df=self.original_df)
-			self.__writeWorkbook(writer=writer, sheet_name='newGC', df=self.df) #TODO
-			self.__writeWorkbook(writer=writer, sheet_name='Log', indexName="Row", df=self._all)
-			self.__writeWorkbook(writer=writer, sheet_name='CHECK', indexName="Row", df=self.check)
-			self.__writeWorkbook(writer=writer, sheet_name='AA', indexName="Compound", df=self.aa)
-			self.__writeWorkbook(writer=writer, sheet_name='IS', indexName="Compound", df=self._is)
-			self.__writeWorkbook(writer=writer, sheet_name='NACME', df=self.nacme) #may have to do index=False
-
-		return
-
 	def export2(self):
 		#self.chart_all() #make this implicit before we save....
 		def substance_mean(self, x):
@@ -384,25 +349,19 @@ class ISOplot:
 		sdd = sdd[['Sample_ID', 'Ext_std', 'Std_method', 'Compound', 'Inj_1', 'Inj_2', 'Inj_3', 'Mean_d13c_dd', 'SD']]
 
 		#remove all cols that wern't corrected!
-		#we are not including standard, so ignore it in our hunt for uncovered values.
 		notCorrected = self.df[(self.df.corrected == False) & (self.df['Identifier 1'] != self.sName)].Component.unique()
-		#issue is that it will drop by every component, need to do it on a per component and per sample basis (or per row basis). 
 		sdd = sdd.drop(sdd[sdd.Compound.isin(notCorrected)].index)
-		#could do it by compound instead of inj...
 
 		sdd_qa = sdd[sdd['Sample_ID'] == self.qaName]#problem is here, we're comparing the wrong things!
 		sdd_samp = sdd[sdd['Sample_ID'] != self.qaName]
 
-		#if corrector worked, all values of _all will be same. IF we run data run operation. Otherwise, we'll have to make
-		#'all' from scratch again
-
 		#format final_dederiv tab
 		injs = self._all['Identifier 1'].unique()
-		#final_dederiv = pd.DataFrame([self._all[self._all['Identifier 1'] == inj].iloc[0] for inj in injs]) 
+
 		final_dederiv = pd.DataFrame([substance_mean(self, self._all[self._all['Identifier 1'] == inj]) for inj in injs]) 
 		final_dederiv = final_dederiv.drop(final_dederiv[final_dederiv['Identifier 1'] == self.sName].index)   
 		final_dederiv = final_dederiv.rename(columns={"Identifier 1": "Sample_ID"})
-		#final_dederiv = final_dederiv.drop(['Identifier 2'], axis=1)
+
 		final_dederiv.insert(0, 'Project', self.projName)
 		final_dederiv.insert(1, 'Sequence', self.fileName)
 
@@ -412,7 +371,8 @@ class ISOplot:
 
 		with pd.ExcelWriter(path, engine='xlsxwriter') as writer:
 			self.__writeWorkbook(writer=writer, sheet_name='Corrected_GC.wke', df=cgc)
-			self.__writeWorkbook(writer=writer, sheet_name='Corrected_GC.wke', df=self.corr_info, indexName=None, startcol=8)
+			if self.corr_info is not None:
+				self.__writeWorkbook(writer=writer, sheet_name='Corrected_GC.wke', df=self.corr_info, indexName=None, startcol=8)
 			self.__writeWorkbook(writer=writer, sheet_name='Reference_measured', df=self.ref_meas, indexName=None)
 			#only write below if de-deriv has been run...
 			if self.ext_std is not None:
@@ -599,42 +559,6 @@ class Corrections:
 	def set_ip(self, ISOplot):
 		self.data = ISOplot
 
-	#correct based on the mean of every measurement of a given compound
-	def correct_all(self, s_name, sw, exclusions=[]):
-		#set standard
-		corr = self.standard[self.standard.Standard == s_name]
-		
-		allQC = self.data._all[self.data._all['Identifier 1'] == self.data.sName]
-
-		for compound in corr.Compound:
-			der_sample_mean = self.data.nacme[self.data.nacme.AA == compound].Mean
-			
-			indicies = self.data.nacme[self.data.nacme.AA == compound].Row.values
-			
-			before = [allQC[allQC.index < x].iloc[0][compound] for x in indicies]
-			after = [allQC[allQC.index > x].iloc[0][compound] for x in indicies]
-			
-			if sw == 0: der_standard = np.mean(allQC[compound])  
-			elif sw == 1: der_standard = before
-			elif sw == 2: der_standard = after
-			elif sw == 3: der_standard = np.mean([before, after])
-			else: return
-				
-			d13C = corr[corr.Compound == compound].d13C.values[0]
-
-			p_C = self.pval[(self.pval.Compound == compound) & (self.pval.Standard == s_name)].p.values[0]
-
-			corrected = (der_sample_mean - der_standard) * p_C + d13C
-
-			current_sample = self.data.nacme[(self.data.nacme.AA == compound) & (self.data.nacme.Sample != self.data.sName)].Sample
-
-			for idx, id1 in enumerate(current_sample):
-				#danger: will modefy seed data
-				self.data.df.loc[(self.data.df['Identifier 1'] == id1) & (self.data.df.Component == compound), 'd 13C/12C'] = corrected.iloc[idx]
-				self.data.df.loc[(self.data.df['Identifier 1'] == id1) & (self.data.df.Component == compound), 'corrected'] = True
-
-		return
-
 	"""
 	0:sample mean
 	1:std before
@@ -662,20 +586,15 @@ class Corrections:
 			elif sw == 2: der_standard = after
 			elif sw == 3: der_standard = bam
 			
-			if len(corr[corr.Compound == row.AA]) > 0:
+			if len(corr[corr.Compound == row.AA]) > 0 and len(self.pval[(self.pval.Compound == row.AA)].p.values) > 0:
 				d13C = corr[corr.Compound == row.AA].d13C.values[0]
-				p_C = self.pval[(self.pval.Compound == row.AA) & (self.pval.Standard == s_name)].p.values[0]
+				p_C = self.pval[(self.pval.Compound == row.AA)].p.values[0]
 
-				corrected = (samp - der_standard) * p_C + d13C
+				corrected = ((samp - der_standard) / p_C) + d13C
 
 				#danger: below will modefy seed data
-				#should only happen to amino acids....
 				self.data.df.loc[(self.data.df.Component == row.AA) & (self.data.df['Identifier 1'] == row.Sample), 'd 13C/12C'] = corrected
 				self.data.df.loc[(self.data.df.Component == row.AA) & (self.data.df['Identifier 1'] == row.Sample), 'corrected'] = ([True] * len(corrected)) 
-				#for idx2, val in self.data.df[(self.data.df['Identifier 1'] == row.Sample) & (self.data.df.Component == row.AA)].iterrows():
-				#for idx2, val in enumerate(corrected):
-				#	select.iloc[idx2] = val
-				#	#
 
 		self.data.ext_std = s_name
 		self.data.std_method = self.methods[sw]
