@@ -9,7 +9,7 @@ import matplotlib.ticker as ticker
 from matplotlib.patches import Rectangle
 from matplotlib import gridspec
 
-import math, blob, os, gc, copy
+import math, os, gc, copy
 
 from datetime import datetime
 
@@ -367,7 +367,6 @@ class ISOplot:
 
 		fn = self.fileName
 		path = os.path.join(self.out_folder_path, fn + '.xlsx')
-		print(path)
 
 		with pd.ExcelWriter(path, engine='xlsxwriter') as writer:
 			self.__writeWorkbook(writer=writer, sheet_name='Corrected_GC.wke', df=cgc)
