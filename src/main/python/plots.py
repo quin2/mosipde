@@ -128,10 +128,12 @@ class ISOplot:
 
 		w = (tw-aa_width)/dpi
 		self.AA_H = self.aa_hist(gW=3, figsize=(w,w*(0.3 * (ht/3))), dpi=dpi)
-		self.AA_T = self.aa_out()
+		self.AA_T = self.aa_out() #this is the scaling to use?
 
 		w = (tw-std_width)/dpi
-		self.STD_H = self.std_hist(gW=2, figsize=(w * 0.75, w*(0.4 * (ht/2))), dpi=dpi)
+		#gW=3, figsize=(w,w*(0.3 * (ht/3))), dpi=dpi
+		#gW=2, figsize=(w * 0.75, w*(0.4 * (ht/2))), dpi=dpi
+		self.STD_H = self.std_hist(gW=3, figsize=(w,w*(0.3 * (ht/3))), dpi=dpi)
 		self.STD_T = self.std_out()
 
 		w = (tw-is_width)/dpi
@@ -459,7 +461,7 @@ class ISOplot:
 			outl = self.__outlier(data)
 			ax.vlines(outl, ymin=0, ymax=mymax, linestyle="dotted")
 
-			ax.hist(data, bins=binsize, color='lightblue', alpha=1.0)
+			ax.hist(data, bins=binsize, color='purple', alpha=1.0)
 
 			ax.text(outl[0], mymax-1, s="+2sd", rotation='vertical', fontsize=12)
 			ax.text(outl[1], mymax-1, s="-2sd", rotation='vertical', fontsize=12)

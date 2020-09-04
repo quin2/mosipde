@@ -16,7 +16,8 @@ When an input file is loaded into ISOviewer, it is stored inside the `df` datafr
 
 ## Running Locally
 * fbs requires python 3.6.4. You need this first, NOT the latest version of Python.
-* do `pip install requirements.txt`
+* to make builds, you will also need to install NSIS, google around for this (it's a seperate application)
+* do `pip install -r requirements.txt`
 * do `fbs run` in the root directory of this project
 
 ## Building to installer form
