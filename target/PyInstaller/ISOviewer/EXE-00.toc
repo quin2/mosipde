@@ -1,9 +1,8 @@
-('C:\\users\\quinn '
- 'vinlove\\documents\\sugarsbio\\target\\PyInstaller\\ISOviewer\\ISOviewer.exe',
+('C:\\Users\\Administrator\\documents\\sugarsbio\\target\\PyInstaller\\ISOviewer\\ISOviewer.exe',
  False,
  False,
  True,
- 'C:\\users\\quinn vinlove\\documents\\sugarsbio\\src\\main\\icons\\Icon.ico',
+ 'C:\\Users\\Administrator\\documents\\sugarsbio\\src\\main\\icons\\Icon.ico',
  None,
  False,
  False,
@@ -11,73 +10,57 @@
  True,
  'ISOviewer.pkg',
  [('PYZ-00.pyz',
-   'C:\\users\\quinn '
-   'vinlove\\documents\\sugarsbio\\target\\PyInstaller\\ISOviewer\\PYZ-00.pyz',
+   'C:\\Users\\Administrator\\documents\\sugarsbio\\target\\PyInstaller\\ISOviewer\\PYZ-00.pyz',
    'PYZ'),
   ('struct',
-   'C:\\Users\\Quinn '
-   'Vinlove\\AppData\\Local\\Programs\\Python\\Python36\\lib\\struct.pyo',
+   'C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python36\\lib\\struct.pyo',
    'PYMODULE'),
   ('pyimod01_os_path',
-   'C:\\Users\\Quinn '
-   'Vinlove\\AppData\\Local\\Programs\\Python\\Python36\\lib\\site-packages\\PyInstaller\\loader\\pyimod01_os_path.pyc',
+   'C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python36\\lib\\site-packages\\PyInstaller\\loader\\pyimod01_os_path.pyc',
    'PYMODULE'),
   ('pyimod02_archive',
-   'C:\\Users\\Quinn '
-   'Vinlove\\AppData\\Local\\Programs\\Python\\Python36\\lib\\site-packages\\PyInstaller\\loader\\pyimod02_archive.pyc',
+   'C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python36\\lib\\site-packages\\PyInstaller\\loader\\pyimod02_archive.pyc',
    'PYMODULE'),
   ('pyimod03_importers',
-   'C:\\Users\\Quinn '
-   'Vinlove\\AppData\\Local\\Programs\\Python\\Python36\\lib\\site-packages\\PyInstaller\\loader\\pyimod03_importers.pyc',
+   'C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python36\\lib\\site-packages\\PyInstaller\\loader\\pyimod03_importers.pyc',
    'PYMODULE'),
   ('pyiboot01_bootstrap',
-   'C:\\Users\\Quinn '
-   'Vinlove\\AppData\\Local\\Programs\\Python\\Python36\\lib\\site-packages\\PyInstaller\\loader\\pyiboot01_bootstrap.py',
+   'C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python36\\lib\\site-packages\\PyInstaller\\loader\\pyiboot01_bootstrap.py',
    'PYSOURCE'),
   ('fbs_pyinstaller_hook',
-   'C:\\users\\quinn '
-   'vinlove\\documents\\sugarsbio\\target\\PyInstaller\\fbs_pyinstaller_hook.py',
+   'C:\\Users\\Administrator\\documents\\sugarsbio\\target\\PyInstaller\\fbs_pyinstaller_hook.py',
    'PYSOURCE'),
   ('pyi_rth_pkgres',
-   'C:\\Users\\Quinn '
-   'Vinlove\\AppData\\Local\\Programs\\Python\\Python36\\lib\\site-packages\\PyInstaller\\loader\\rthooks\\pyi_rth_pkgres.py',
+   'C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python36\\lib\\site-packages\\PyInstaller\\loader\\rthooks\\pyi_rth_pkgres.py',
    'PYSOURCE'),
   ('pyi_rth_win32comgenpy',
-   'C:\\Users\\Quinn '
-   'Vinlove\\AppData\\Local\\Programs\\Python\\Python36\\lib\\site-packages\\PyInstaller\\loader\\rthooks\\pyi_rth_win32comgenpy.py',
+   'C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python36\\lib\\site-packages\\PyInstaller\\loader\\rthooks\\pyi_rth_win32comgenpy.py',
    'PYSOURCE'),
   ('pyi_rth_multiprocessing',
-   'C:\\Users\\Quinn '
-   'Vinlove\\AppData\\Local\\Programs\\Python\\Python36\\lib\\site-packages\\PyInstaller\\loader\\rthooks\\pyi_rth_multiprocessing.py',
+   'C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python36\\lib\\site-packages\\PyInstaller\\loader\\rthooks\\pyi_rth_multiprocessing.py',
    'PYSOURCE'),
   ('pyi_rth__tkinter',
-   'C:\\Users\\Quinn '
-   'Vinlove\\AppData\\Local\\Programs\\Python\\Python36\\lib\\site-packages\\PyInstaller\\loader\\rthooks\\pyi_rth__tkinter.py',
+   'C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python36\\lib\\site-packages\\PyInstaller\\loader\\rthooks\\pyi_rth__tkinter.py',
    'PYSOURCE'),
   ('pyi_rth_qt5',
-   'C:\\Users\\Quinn '
-   'Vinlove\\AppData\\Local\\Programs\\Python\\Python36\\lib\\site-packages\\PyInstaller\\loader\\rthooks\\pyi_rth_qt5.py',
+   'C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python36\\lib\\site-packages\\PyInstaller\\loader\\rthooks\\pyi_rth_qt5.py',
    'PYSOURCE'),
   ('pyi_rth_mplconfig',
-   'C:\\Users\\Quinn '
-   'Vinlove\\AppData\\Local\\Programs\\Python\\Python36\\lib\\site-packages\\PyInstaller\\loader\\rthooks\\pyi_rth_mplconfig.py',
+   'C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python36\\lib\\site-packages\\PyInstaller\\loader\\rthooks\\pyi_rth_mplconfig.py',
    'PYSOURCE'),
   ('pyi_rth_mpldata',
-   'C:\\Users\\Quinn '
-   'Vinlove\\AppData\\Local\\Programs\\Python\\Python36\\lib\\site-packages\\PyInstaller\\loader\\rthooks\\pyi_rth_mpldata.py',
+   'C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python36\\lib\\site-packages\\PyInstaller\\loader\\rthooks\\pyi_rth_mpldata.py',
    'PYSOURCE'),
   ('main',
-   'C:\\users\\quinn vinlove\\documents\\sugarsbio\\src\\main\\python\\main.py',
+   'C:\\Users\\Administrator\\documents\\sugarsbio\\src\\main\\python\\main.py',
    'PYSOURCE'),
   ('ISOviewer.exe.manifest',
-   'C:\\users\\quinn '
-   'vinlove\\documents\\sugarsbio\\target\\PyInstaller\\ISOviewer\\ISOviewer.exe.manifest',
+   'C:\\Users\\Administrator\\documents\\sugarsbio\\target\\PyInstaller\\ISOviewer\\ISOviewer.exe.manifest',
    'BINARY')],
  [],
  False,
  False,
- 1598514246,
+ 1599285862,
  [('runw.exe',
-   'C:\\Users\\Quinn '
-   'Vinlove\\AppData\\Local\\Programs\\Python\\Python36\\lib\\site-packages\\PyInstaller\\bootloader\\Windows-64bit\\runw.exe',
+   'C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python36\\lib\\site-packages\\PyInstaller\\bootloader\\Windows-64bit\\runw.exe',
    'EXECUTABLE')])

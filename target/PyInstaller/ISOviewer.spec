@@ -3,13 +3,13 @@
 block_cipher = None
 
 
-a = Analysis(['C:\\users\\quinn vinlove\\documents\\sugarsbio\\src\\main\\python\\main.py'],
-             pathex=['C:\\users\\quinn vinlove\\documents\\sugarsbio\\target\\PyInstaller'],
+a = Analysis(['C:\\Users\\Administrator\\documents\\sugarsbio\\src\\main\\python\\main.py'],
+             pathex=['C:\\Users\\Administrator\\documents\\sugarsbio\\target\\PyInstaller'],
              binaries=[],
              datas=[],
              hiddenimports=[],
-             hookspath=['C:\\Users\\Quinn Vinlove\\AppData\\Local\\Programs\\Python\\Python36\\lib\\site-packages\\fbs\\freeze\\hooks'],
-             runtime_hooks=['C:\\users\\quinn vinlove\\documents\\sugarsbio\\target\\PyInstaller\\fbs_pyinstaller_hook.py'],
+             hookspath=['C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python36\\lib\\site-packages\\fbs\\freeze\\hooks'],
+             runtime_hooks=['C:\\Users\\Administrator\\documents\\sugarsbio\\target\\PyInstaller\\fbs_pyinstaller_hook.py'],
              excludes=[],
              win_no_prefer_redirects=False,
              win_private_assemblies=False,
@@ -26,7 +26,7 @@ exe = EXE(pyz,
           bootloader_ignore_signals=False,
           strip=False,
           upx=False,
-          console=False , icon='C:\\users\\quinn vinlove\\documents\\sugarsbio\\src\\main\\icons\\Icon.ico')
+          console=False , icon='C:\\Users\\Administrator\\documents\\sugarsbio\\src\\main\\icons\\Icon.ico')
 coll = COLLECT(exe,
                a.binaries,
                a.zipfiles,
