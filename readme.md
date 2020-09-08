@@ -24,3 +24,6 @@ If the program crashes, the number one problem is malformed data. Make sure the 
 
 ## Contributing
 See `contributing.md`
+
+## Acknowledgements
+The work was funded by award 1R01DK109946 (Diane O'Brien, PI) from the NIH National Institute of Diabetes and Digestive and Kidney Diseases (NIDDK)
