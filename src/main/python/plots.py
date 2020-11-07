@@ -577,10 +577,21 @@ class Corrections:
 		allCorrected = []
 		for idx, row in self.data.nacme.iterrows(): #could reduce this to map...
 			samp = [row.Inj_1, row.Inj_2, row.Inj_3]
-			
-			before = allQC[allQC.index < row.Row].iloc[0][row.AA]
-			after = allQC[allQC.index > row.Row].iloc[0][row.AA]
-			bam = np.mean([before, after])
+
+			before = allQC[allQC.index < row.Row]
+			after = allQC[allQC.index > row.Row]
+
+			if len(before) > 0:
+				before = before.iloc[0][row.AA]
+			else: #if there's no before to use, sub in after value
+				before = after.iloc[0][row.AA]
+
+			if len(after) > 0:
+				after = after.iloc[0][row.AA]
+			else: #if there's no after to use, sub in before value
+				after = before.iloc[0][row.AA]
+
+			bam = np.mean([before, after]) #take mean of before/after
 			
 			if sw == 0: der_standard = np.mean(allQC[row.AA])
 			elif sw == 1: der_standard = before

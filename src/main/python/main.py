@@ -176,7 +176,7 @@ class App(QMainWindow):
 
 	@pyqtSlot()
 	def save(self):
-		self.ip.export()
+		self.ip.export2()
 		return
 
 	@pyqtSlot()
