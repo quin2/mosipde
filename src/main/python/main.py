@@ -308,12 +308,12 @@ class SmartListWidget(QWidget):
 		super(QWidget, self).__init__()
 
 		self.includeRows = []
-		self.ISRows = ['nLeu', 'Nonadecane', 'Caffeine'] #default values, make these checked too
 
 		self.layout = QVBoxLayout()
 		self.tableWidget = QTableWidget()
 
 		self.targetData = df['Component'].unique()
+		self.ISRows = list(set(['nLeu', 'Nonadecane', 'Caffeine']).intersection(self.targetData))
 
 		self.tableWidget.setRowCount(len(self.targetData))
 		self.tableWidget.setColumnCount(3)
