@@ -535,8 +535,8 @@ class ISOplot:
 		if len(work) < 2:
 			return None, None, None
 
-		X = np.array(work.index).reshape(-1,1)
-		y = np.array(work.values).reshape(-1, 1)
+		X = np.array(work.index).reshape(-1,1).astype(np.float32)
+		y = np.array(work.values).reshape(-1, 1).astype(np.float32)
 
 		clf = LinearRegression().fit(X, y)
 
